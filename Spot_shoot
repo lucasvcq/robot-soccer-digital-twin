@@ -1,0 +1,24 @@
+import rsk
+from rsk import constants
+
+class Jules:
+    def __init__(self, client):
+        self.client = client
+
+    def Spot_shoot(self):
+        B = self.client.ball
+        S = (B.x, B.y)  # Position de la balle
+        robot = self.client.green1  # Utilise le robot vert 1
+        robot.goto(S)  # Déplace le robot vers la balle
+
+# Utilisation de la classe
+with rsk.Client() as client:
+    jules = Jules(client)
+    jules.Spot_shoot()  # Exécute la méthode
+
+
+
+
+
+        
+            
