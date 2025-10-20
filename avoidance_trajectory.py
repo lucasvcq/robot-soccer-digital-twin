@@ -1,5 +1,5 @@
 import rsk
-from avoid import Remi
+from REMI import Remi
 import time
 
 with rsk.Client() as client:
