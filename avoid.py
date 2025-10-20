@@ -1,4 +1,4 @@
-from math import sqrt, cos, sin
+from math import sqrt, cos, sin, atan2
 
 class Remi:
     def __init__(self, client):
@@ -52,13 +52,14 @@ class Remi:
         """Renvoie un petit vecteur de répulsion si un joueur est trop proche"""
         repulsion_x, repulsion_y = 0, 0
         distances = self.distance_players(robot)
+        theta = robot.orientation
         for player, dist in distances:
             if dist < seuil_player:
                 dx = robot.position[0] - player.position[0]
                 dy = robot.position[1] - player.position[1]
                 facteur = force*(seuil_player - dist) / seuil_player
-                repulsion_x += dx / dist * facteur
-                repulsion_y += dy / dist * facteur
+                repulsion_x += (dx / dist * facteur)*cos(theta)
+                repulsion_y += (dy / dist * facteur)*sin(theta)
         return (repulsion_x, repulsion_y)
     
     def mouvement(self, robot, destination, vitesse_max, seuil_ball, seuil_player, force):
@@ -71,10 +72,16 @@ class Remi:
 
         # vecteur vers la balle
         vx, vy = self.vecteur_robot(robot, destination)
-
+       
         # vecteur d’évitement
         ex, ey = self.evite(robot, seuil_player, force)
-
+        print( ex, ey)
+        if abs(ey) <= abs(ex):
+            if ey < 0:
+                ey = abs(ex)
+            else:
+                ey = -abs(ex)
+        
         # combinaison des deux vecteurs
         vx_total = vx + ex
         vy_total = vy + ey
@@ -92,3 +99,14 @@ class Remi:
         robot.control(vx_final, vy_final, 0)
         print(f"🚗 Vers balle | Dist: {distance_objectif:.2f} | vx={vx_final:.2f}, vy={vy_final:.2f}")
         return False
+
+    def angle(self, robot, objectif):
+        x, y = self.vecteur_direction(robot, objectif)
+        theta_direction = atan2(y, x)
+        return theta_direction
+
+    def rotation_mouvement(self, robot, objectif):
+        theta_direction = self.angle(robot, objectif)
+        x1, y1 = robot.position
+        robot.goto((x1, y1, theta_direction))
+
