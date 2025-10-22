@@ -13,10 +13,10 @@ SWITCH_MARGIN = 0.02       # marge de distance pour changer d'acteur (m)
 LOOP_DT = 0.05             # période de la boucle principale (s)
 
 # clearance minimale entre le waypoint et la balle (m). Assure que le robot ne frôle pas la balle.
-MIN_AROUND_CLEARANCE = 0.20   # 10 cm par défaut — augmente si le robot continue de toucher la balle
+MIN_AROUND_CLEARANCE = 0.12   # 10 cm par défaut — augmente si le robot continue de toucher la balle
 # multiplicateur initial et maximum appliqué à la distance latérale de base
 AROUND_DISTANCE_BASE = ALIGN_DISTANCE * 1.2
-AROUND_DISTANCE_MAX_FACTOR = 4.0
+AROUND_DISTANCE_MAX_FACTOR = 3.0
 AROUND_DISTANCE_STEP_FACTOR = 1.25  # facteur multiplicatif appliqué à chaque essai
 # petit offset pour éviter d'être exactement sur la ligne de tir (en avant du point de contournement)
 AROUND_FORWARD_OFFSET = 0.02
