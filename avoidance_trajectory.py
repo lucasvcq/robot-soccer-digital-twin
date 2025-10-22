@@ -6,8 +6,8 @@ with rsk.Client() as client:
     avoid = mouvement(client)
     vitesse_max = 1.0
     seuil_ball = 0.20
-    seuil_player = 0.5
-    force = 0.7
+    seuil_player = 0.4
+    force = 1.4
     T_sleep = 0.01
     marge_angulaire = 0.1
     while True:
