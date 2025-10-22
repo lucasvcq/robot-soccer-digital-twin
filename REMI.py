@@ -58,8 +58,8 @@ class Remi:
                 dx = robot.position[0] - player.position[0]
                 dy = robot.position[1] - player.position[1]
                 facteur = force*(seuil_player - dist) / seuil_player
-                repulsion_x += (dx / dist * facteur)*cos(theta)
-                repulsion_y += (dy / dist * facteur)*sin(theta)
+                repulsion_x += (dx / dist * facteur)
+                repulsion_y += (dy / dist * facteur)
         return (repulsion_x, repulsion_y)
     
     def mouvement(self, robot, destination, vitesse_max, seuil_ball, seuil_player, force):
