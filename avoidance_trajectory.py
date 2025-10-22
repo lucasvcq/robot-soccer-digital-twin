@@ -9,14 +9,10 @@ with rsk.Client() as client:
     seuil_player = 0.3
     force = 2
     T_sleep = 0.01
-    marge_angulaire = 1
+    marge_angulaire = 0.1
     while True:
-        angle = client.green2.orientation
-        objectif = avoid.angle(client.green2, client.ball)
-        if objectif == angle + marge_angulaire or objectif == angle - marge_angulaire:
-            avoid.rotation_mouvement(client.green2, client.ball)
-        else:
-            fini = avoid.mouvement(client.green2, client.ball, vitesse_max, seuil_ball, seuil_player,force)
-            if fini:
-                break
+        avoid.rotation_mouvement(client.green2, client.ball, marge_angulaire)
+        fini = avoid.mouvement(client.green2, client.ball, vitesse_max, seuil_ball, seuil_player,force)
+        if fini:
+            break
         time.sleep(T_sleep)

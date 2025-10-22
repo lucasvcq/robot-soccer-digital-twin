@@ -105,8 +105,11 @@ class Remi:
         theta_direction = atan2(y, x)
         return theta_direction
 
-    def rotation_mouvement(self, robot, objectif):
+    def rotation_mouvement(self, robot, objectif, marge_rotation):
         theta_direction = self.angle(robot, objectif)
+        orientation = robot.orientation
+        rotation = theta_direction - orientation
         x1, y1 = robot.position
-        robot.goto((x1, y1, theta_direction))
+        if rotation >= marge_rotation:
+            robot.goto((x1, y1, rotation))
 
