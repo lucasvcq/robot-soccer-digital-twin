@@ -1,6 +1,6 @@
 from math import sqrt, cos, sin, atan2
 
-class Remi:
+class mouvement:
     def __init__(self, client):
         self.client = client
 
@@ -49,18 +49,25 @@ class Remi:
         return distance_player #distance_player[0]=nom du robot et distance_player[1]=distance
 
     def evite(self, robot, seuil_player, force):
-        """Renvoie un petit vecteur de répulsion si un joueur est trop proche"""
-        repulsion_x, repulsion_y = 0, 0
+        """Renvoie un vecteur de répulsion si un joueur est trop proche"""
+        x, y = 0, 0
         distances = self.distance_players(robot)
         theta = robot.orientation
+
+        # On cumule la répulsion pour tous les joueurs proches
         for player, dist in distances:
-            if dist < seuil_player:
-                dx = robot.position[0] - player.position[0]
-                dy = robot.position[1] - player.position[1]
-                facteur = force*(seuil_player - dist) / seuil_player
-                repulsion_x += (dx / dist * facteur)
-                repulsion_y += (dy / dist * facteur)
+            if dist < seuil_player and dist > 0:  # éviter division par zéro
+              dx = robot.position[0] - player.position[0]
+              dy = robot.position[1] - player.position[1]
+              facteur = force * (seuil_player - dist) / seuil_player
+              x += (dx / dist) * facteur
+              y += (dy / dist) * facteur
+
+         # Conversion du repère global -> repère robot
+        repulsion_x = x * cos(theta) + y * sin(theta)
+        repulsion_y = -x * sin(theta) + y * cos(theta)
         return (repulsion_x, repulsion_y)
+
     
     def mouvement(self, robot, destination, vitesse_max, seuil_ball, seuil_player, force):
         """Effectue un mouvement complet vers la balle avec évitement"""
@@ -72,15 +79,15 @@ class Remi:
 
         # vecteur vers la balle
         vx, vy = self.vecteur_robot(robot, destination)
-       
         # vecteur d’évitement
         ex, ey = self.evite(robot, seuil_player, force)
+
         print( ex, ey)
         if abs(ey) <= abs(ex):
             if ey < 0:
-                ey = abs(ex)
-            else:
                 ey = -abs(ex)
+            else:
+                ey = abs(ex)
         
         # combinaison des deux vecteurs
         vx_total = vx + ex
@@ -113,3 +120,43 @@ class Remi:
         if rotation >= marge_rotation:
             robot.goto((x1, y1, rotation))
 
+
+class defense:
+    def __init__(self, client):
+        self.client = client
+
+
+    def point_intermediaire(self, position1, position2, distance):
+        x1, y1 = position1
+        x2, y2 = position2
+        D = sqrt((x2 - x1)**2 + (y2 - y1)**2)+0.04
+
+        # Si la distance demandée dépasse la distance totale
+        if distance > D:
+            raise ValueError("La distance d dépasse la distance entre A et B")
+        
+        ratio = distance / D
+        x = x1 + (x2 - x1) * ratio
+        y = y1 + (y2 - y1) * ratio
+        return (x, y)
+    
+    def distance_securite(self, distance_ball_but):
+        taille_but = 0.6
+        taille_robot = 0.08
+        distance_balle_robot = (taille_robot * distance_ball_but) / taille_but
+
+        return distance_balle_robot
+
+    def position_defense(self, ball, zone_defense):
+        x_ball, y_ball = ball
+        x_defense, y_defense = zone_defense
+        distance_ball_but = sqrt((x_defense-x_ball)**2 + (y_defense-y_ball)**2)
+        distance = self.distance_securite(distance_ball_but)
+        x_objectif, y_objectif = self.point_intermediaire(ball, zone_defense, distance)
+        return x_objectif, y_objectif
+    
+    def defense_passive(self, robot, ball, zone_defense):
+        delta_x, delta_y = ball[0]-zone_defense[0], ball[1]-zone_defense[1]
+        theta = atan2(delta_y, delta_x)
+        x, y = self.position_defense(ball, zone_defense)
+        robot.goto((x, y, theta))
