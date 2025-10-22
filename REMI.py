@@ -1,6 +1,6 @@
 from math import sqrt, cos, sin, atan2
 
-class mouvement:
+class Mouvement:
     def __init__(self, client):
         self.client = client
 
@@ -121,7 +121,7 @@ class mouvement:
             robot.goto((x1, y1, rotation))
 
 
-class defense:
+class Defense:
     def __init__(self, client):
         self.client = client
 
@@ -159,4 +159,4 @@ class defense:
         delta_x, delta_y = ball[0]-zone_defense[0], ball[1]-zone_defense[1]
         theta = atan2(delta_y, delta_x)
         x, y = self.position_defense(ball, zone_defense)
-        robot.goto((x, y, theta))
+        self.vecteur_robot(robot, (x,y))
