@@ -12,9 +12,14 @@ MIN_ACTOR_TIME = 0.6       # temps min avant de changer d'acteur (s)
 SWITCH_MARGIN = 0.02       # marge de distance pour changer d'acteur (m)
 LOOP_DT = 0.05             # période de la boucle principale (s)
 
-# paramètres pour le contournement (pour éviter de pousser la balle)
-AROUND_DISTANCE = ALIGN_DISTANCE * 1.2   # distance latérale pour le point de contournement
-AROUND_CLEARANCE = 0.02                  # petit offset pour ne pas toucher la balle en waypoint
+# clearance minimale entre le waypoint et la balle (m). Assure que le robot ne frôle pas la balle.
+MIN_AROUND_CLEARANCE = 0.20   # 10 cm par défaut — augmente si le robot continue de toucher la balle
+# multiplicateur initial et maximum appliqué à la distance latérale de base
+AROUND_DISTANCE_BASE = ALIGN_DISTANCE * 1.2
+AROUND_DISTANCE_MAX_FACTOR = 4.0
+AROUND_DISTANCE_STEP_FACTOR = 1.25  # facteur multiplicatif appliqué à chaque essai
+# petit offset pour éviter d'être exactement sur la ligne de tir (en avant du point de contournement)
+AROUND_FORWARD_OFFSET = 0.02
 
 MAX_FIELD_X = constants.field_length/2.0
 MIN_FIELD_X = -constants.field_length/2.0
@@ -72,45 +77,98 @@ def is_robot_between_ball_and_goal(robot_pos, ball, goal, angle_threshold_deg=20
 
 def compute_around_waypoint(ball, goal, side=1):
     """
-    Calcule un waypoint latéral pour contourner la balle.
-    side = +1 droite (vu ball->goal), -1 gauche.
+    Calcule un waypoint latéral pour contourner la balle en garantissant une clearance minimale.
+    side = +1 pour droite (vu ball->goal), -1 pour gauche.
+    La fonction essaie d'augmenter progressivement la distance latérale si le waypoint est trop proche de la balle.
     """
-    u_bg = unit_vector_from_to(ball, goal)  # ball -> goal
+    # direction ball -> goal (unitaire)
+    u_bg = unit_vector_from_to(ball, goal)
+    # vecteur perpendiculaire (left) and signed
     perp = (-u_bg[1], u_bg[0])
     perp_signed = (perp[0] * side, perp[1] * side)
-    # base point derrière la balle
+
+    # point de base : derrière la balle (pour viser la trajectoire de tir ensuite)
     base = (ball[0] - u_bg[0]*ALIGN_DISTANCE, ball[1] - u_bg[1]*ALIGN_DISTANCE)
-    wp = (base[0] + perp_signed[0]*AROUND_DISTANCE + u_bg[0]*AROUND_CLEARANCE,
-          base[1] + perp_signed[1]*AROUND_DISTANCE + u_bg[1]*AROUND_CLEARANCE)
-    return clamp_to_field(wp)
+
+    # on cherche un lateral_distance qui respecte la clearance minimale
+    lateral = AROUND_DISTANCE_BASE
+    tried = 0
+    wp = None
+    while lateral <= AROUND_DISTANCE_BASE * AROUND_DISTANCE_MAX_FACTOR:
+        # construire waypoint candidate
+        candidate = (
+            base[0] + perp_signed[0]*lateral + u_bg[0]*AROUND_FORWARD_OFFSET,
+            base[1] + perp_signed[1]*lateral + u_bg[1]*AROUND_FORWARD_OFFSET
+        )
+        # clamp to field (évite de générer waypoint hors-terrain)
+        candidate = clamp_to_field(candidate)
+        # calcul clearance (distance waypoint -> ball)
+        clearance = dist(candidate, ball)
+        # si clearance suffisante, on a trouvé le waypoint
+        if clearance >= MIN_AROUND_CLEARANCE:
+            wp = candidate
+            if tried > 0:
+                print(f"[compute_around_waypoint] élargi lateral={lateral:.3f}m après {tried} essais, clearance={clearance:.3f}m")
+            break
+        # sinon augmenter lateral et réessayer
+        lateral *= AROUND_DISTANCE_STEP_FACTOR
+        tried += 1
+
+    # si on n'a rien trouvé (peu probable), utilise le dernier candidat clamped, mais note le warning
+    if wp is None:
+        # fallback : prendre dernier candidate calculé (peut être clamped)
+        lateral = min(lateral, AROUND_DISTANCE_BASE * AROUND_DISTANCE_MAX_FACTOR)
+        wp = (
+            base[0] + perp_signed[0]*lateral + u_bg[0]*AROUND_FORWARD_OFFSET,
+            base[1] + perp_signed[1]*lateral + u_bg[1]*AROUND_FORWARD_OFFSET
+        )
+        wp = clamp_to_field(wp)
+        print(f"[compute_around_waypoint] WARNING: clearance insuffisante (dernier clearance={dist(wp, ball):.3f}m). Utilisation fallback.")
+
+    return wp
 
 def needs_around(robot_pos, ball, goal):
     """
-    Décision : faut-il contourner la balle ?
-    - Si robot est clairement *entre* la balle et le but (détecté avec is_robot_between_ball_and_goal) -> True.
-    - Sinon, si robot est proche et l'angle robot->ball vs robot->goal est ambigu (risque de pousser),
-      on peut aussi décider de contourner (logique conservatrice).
-    - IMPORTANT : si la balle est devant (dot > 0), on n'active PAS le contournement.
+    Décision améliorée et stabilisée :
+    Détermine s’il faut contourner la balle pour se placer derrière.
+    Corrige le cas où le robot est déjà derrière mais un peu mal orienté.
     """
-    # cas principal : robot est entre ball et goal (ball derrière robot) -> contourner
-    if is_robot_between_ball_and_goal(robot_pos, ball, goal, angle_threshold_deg=20):
-        return True
 
-    # sinon, cas secondaire : robot proche et angle petit MAIS balle devant -> ne pas contourner
+    # seuils
+    FRONT_DOT = 0.12        # >0.12 : balle devant
+    FRONT_ANGLE_DEG = 55.0  # <55° : balle globalement devant, bon axe
+    SIDE_ANGLE_DEG = 70.0   # >70° : balle clairement sur le côté
+    DIST_CLOSE = 0.35       # distance courte → prudence pour contournement
+
+    # vecteurs
+    u_rg = unit_vector_from_to(robot_pos, goal)        # robot → goal
+    v_rb = (ball[0] - robot_pos[0], ball[1] - robot_pos[1])  # robot → ball
     d = dist(robot_pos, ball)
-    u_rg = unit_vector_from_to(robot_pos, goal)
-    v_rb = (ball[0]-robot_pos[0], ball[1]-robot_pos[1])
     dot = v_rb[0]*u_rg[0] + v_rb[1]*u_rg[1]
     angle_rb_deg = abs(math.degrees(wrap(angle_between(robot_pos, ball) - angle_between(robot_pos, goal))))
 
-    # si la balle est clairement devant (dot > 0.05), ne pas contourner
-    if dot > 0.05:
+    # DIAG
+    print("---- DIAG ----")
+    print(f"angle_rb_deg={angle_rb_deg:.2f} dot={dot:.4f} d_to_ball={d:.3f}")
+
+    # ✅ Cas 1 : balle bien devant, alignée -> pas besoin de contourner
+    if (dot > FRONT_DOT) and (angle_rb_deg < FRONT_ANGLE_DEG):
         return False
 
-    # si la balle est légèrement derrière (dot <= 0.05) et robot très proche, et angle pas trop grand -> contourner
-    if d < 0.18 and angle_rb_deg < 30.0 and dot < 0.08:
+    # ✅ Cas 2 : balle sur le côté ou très mal alignée -> contourner
+    if (dot < 0) or (angle_rb_deg > SIDE_ANGLE_DEG):
         return True
 
+    # ✅ Cas 3 : balle proche -> prudence
+    # si proche et pas parfaitement dans l'axe, contourner
+    if (d < DIST_CLOSE) and ((dot < 0.2) or (angle_rb_deg > 45.0)):
+        return True
+
+    # ✅ Cas 4 : robot clairement entre balle & but
+    if is_robot_between_ball_and_goal(robot_pos, ball, goal, angle_threshold_deg=25):
+        return True
+
+    # sinon, pas besoin de contourner
     return False
 
 # ---------- main amélioré avec logs ----------
