@@ -1,4 +1,4 @@
-from math import sqrt, cos, sin, atan2
+from math import *
 
 class Mouvement:
     def __init__(self, client):
@@ -129,6 +129,7 @@ class Defense:
     def point_intermediaire(self, position1, position2, distance):
         x1, y1 = position1
         x2, y2 = position2
+        marge = 0.04
         D = sqrt((x2 - x1)**2 + (y2 - y1)**2)+0.04
 
         # Si la distance demandée dépasse la distance totale
@@ -136,8 +137,8 @@ class Defense:
             raise ValueError("La distance d dépasse la distance entre A et B")
         
         ratio = distance / D
-        x = x1 + (x2 - x1) * ratio
-        y = y1 + (y2 - y1) * ratio
+        x = x1 + (x2 - x1) * (ratio + marge)
+        y = y1 + (y2 - y1) * (ratio + marge)
         return (x, y)
     
     def distance_securite(self, distance_ball_but):
@@ -155,8 +156,42 @@ class Defense:
         x_objectif, y_objectif = self.point_intermediaire(ball, zone_defense, distance)
         return x_objectif, y_objectif
     
-    def defense_passive(self, robot, ball, zone_defense):
+    def vecteur_robot(self, robot, objectif):
+        """Vecteur vers la balle dans le repère du robot"""
+        vx_terrain, vy_terrain = self.vecteur_direction(robot, objectif)
+        theta = robot.orientation
+        vx = cos(theta) * vx_terrain + sin(theta) * vy_terrain
+        vy = -sin(theta) * vx_terrain + cos(theta) * vy_terrain
+        norme = sqrt(vx**2 + vy**2)
+        if norme != 0:
+            vx_robot = vx / norme
+            vy_robot = vy / norme
+        else:
+            vx_robot, vy_robot = 0, 0
+        return (vx_robot, vy_robot)
+    
+    def vecteur_direction(self, robot, objectif):
+        C = robot.position
+        B = objectif
+        return (B[0] - C[0], B[1] - C[1])
+    
+    def distance_objectif(self, robot, objectif):
+        C = robot.position
+        B = objectif
+        D = (C[0] - B[0], C[1] - B[1])
+        return sqrt(D[0]**2 + D[1]**2)
+    
+    def defense_passive(self, robot, ball, zone_defense, erreur_placement, vitesse):
         delta_x, delta_y = ball[0]-zone_defense[0], ball[1]-zone_defense[1]
         theta = atan2(delta_y, delta_x)
+        thetha_robot = robot.orientation
+        w = (theta - thetha_robot + pi) % (2 * pi) - pi
         x, y = self.position_defense(ball, zone_defense)
-        self.vecteur_robot(robot, (x,y))
+        vx, vy = self.vecteur_robot(robot, (x,y))
+        distance = self.distance_objectif(robot, (x,y))
+        if distance > erreur_placement:
+            robot.control(vx*vitesse, vy*vitesse, 0)
+            return
+        else:
+            robot.control(0, 0, w)
+            return

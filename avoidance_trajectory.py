@@ -1,9 +1,9 @@
 import rsk
-from REMI import mouvement
+from REMI import Mouvement
 import time
 
 with rsk.Client() as client:
-    avoid = mouvement(client)
+    avoid = Mouvement(client)
     vitesse_max = 1.0
     seuil_ball = 0.20
     seuil_player = 0.4

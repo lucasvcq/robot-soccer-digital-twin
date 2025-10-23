@@ -8,8 +8,10 @@ with rsk.Client() as client:
     mouvement = Mouvement(client)
     defense = Defense(client)
     robot = client.green2
+    vitesse = 0.5
     zone_defense = (1.84/2,0)
+    erreur_placement = 0.02
     while True:
         ball = client.ball
-        remi.defense_passive(robot, ball, zone_defense)
+        defense.defense_passive(robot, ball, zone_defense, erreur_placement, vitesse)
         
