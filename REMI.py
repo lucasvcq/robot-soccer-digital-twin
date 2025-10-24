@@ -193,5 +193,5 @@ class Defense:
             robot.control(vx*vitesse, vy*vitesse, 0)
             return
         else:
-            robot.control(0, 0, w)
+            robot.control(0, 0, 10*w)
             return
