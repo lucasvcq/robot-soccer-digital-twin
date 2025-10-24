@@ -5,13 +5,12 @@ import time
 with rsk.Client() as client:
     avoid = Mouvement(client)
     vitesse_max = 1.0
-    seuil_ball = 0.20
+    seuil_ball = 0.2
     seuil_player = 0.4
     force = 1.4
     T_sleep = 0.01
     marge_angulaire = 0.1
     while True:
-        avoid.rotation_mouvement(client.green2, client.ball, marge_angulaire)
         fini = avoid.mouvement(client.green2, client.ball, vitesse_max, seuil_ball, seuil_player,force)
         if fini:
             break

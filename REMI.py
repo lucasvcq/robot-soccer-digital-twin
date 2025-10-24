@@ -63,7 +63,7 @@ class Mouvement:
               x += (dx / dist) * facteur
               y += (dy / dist) * facteur
 
-         # Conversion du repère global -> repère robot
+        # Conversion du repère global -> repère robot
         repulsion_x = x * cos(theta) + y * sin(theta)
         repulsion_y = -x * sin(theta) + y * cos(theta)
         return (repulsion_x, repulsion_y)
@@ -73,53 +73,46 @@ class Mouvement:
         """Effectue un mouvement complet vers la balle avec évitement"""
         distance_objectif = self.distance_objectif(robot,destination)
         if distance_objectif <= seuil_ball:
-            robot.control(0, 0, 0)
+            delta_x, delta_y = self.vecteur_direction(robot, destination)
+            theta = atan2(delta_y, delta_x)
+            thetha_robot = robot.orientation
+            w = (theta - thetha_robot + pi) % (2 * pi) - pi
+            robot.control(0, 0, 5*w)
             print(f"✅ Arrêt : distance {round(distance_objectif,2)} < seuil {seuil_ball}")
-            return True  # indique que la balle est atteinte
+            return False
+        else:
 
-        # vecteur vers la balle
-        vx, vy = self.vecteur_robot(robot, destination)
-        # vecteur d’évitement
-        ex, ey = self.evite(robot, seuil_player, force)
+            # vecteur vers la balle
+            vx, vy = self.vecteur_robot(robot, destination)
+            # vecteur d’évitement
+            ex, ey = self.evite(robot, seuil_player, force)
 
-        print( ex, ey)
-        if abs(ey) <= abs(ex):
-            if ey < 0:
-                ey = -abs(ex)
-            else:
-                ey = abs(ex)
-        
-        # combinaison des deux vecteurs
-        vx_total = vx + ex
-        vy_total = vy + ey
+            print( ex, ey)
+            if abs(ey) <= abs(ex):
+                if ey < 0:
+                    ey = -abs(ex)
+                else:
+                    ey = abs(ex)
 
-        # normalisation
-        norme = sqrt(vx_total**2 + vy_total**2)
-        if norme != 0:
-            vx_total /= norme
-            vy_total /= norme
+            # combinaison des deux vecteurs
+            vx_total = vx + ex
+            vy_total = vy + ey
 
-        # calcul vitesse finale
-        vx_final, vy_final = self.avance((vx_total, vy_total), vitesse_max)
+            # normalisation
+            norme = sqrt(vx_total**2 + vy_total**2)
+            if norme != 0:
+                vx_total /= norme
+                vy_total /= norme
 
-        # mouvement du robot
-        robot.control(vx_final, vy_final, 0)
-        print(f"🚗 Vers balle | Dist: {distance_objectif:.2f} | vx={vx_final:.2f}, vy={vy_final:.2f}")
-        return False
+            # calcul vitesse finale
+            vx_final, vy_final = self.avance((vx_total, vy_total), vitesse_max)
 
-    def angle(self, robot, objectif):
-        x, y = self.vecteur_direction(robot, objectif)
-        theta_direction = atan2(y, x)
-        return theta_direction
+            # mouvement du robot
+            robot.control(vx_final, vy_final, 0)
+            print(f"🚗 Vers balle | Dist: {distance_objectif:.2f} | vx={vx_final:.2f}, vy={vy_final:.2f}")
+            return False
 
-    def rotation_mouvement(self, robot, objectif, marge_rotation):
-        theta_direction = self.angle(robot, objectif)
-        orientation = robot.orientation
-        rotation = theta_direction - orientation
-        x1, y1 = robot.position
-        if rotation >= marge_rotation:
-            robot.goto((x1, y1, rotation))
-
+    
 
 class Defense:
     def __init__(self, client):
