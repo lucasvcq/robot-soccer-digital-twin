@@ -7,11 +7,8 @@ with rsk.Client() as client:
     vitesse_max = 1.0
     seuil_ball = 0.2
     seuil_player = 0.4
-    force = 1.4
-    T_sleep = 0.01
-    marge_angulaire = 0.1
+    force = 1.5
     while True:
         fini = avoid.mouvement(client.green2, client.ball, vitesse_max, seuil_ball, seuil_player,force)
         if fini:
             break
-        time.sleep(T_sleep)

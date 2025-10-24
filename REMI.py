@@ -53,20 +53,20 @@ class Mouvement:
         x, y = 0, 0
         distances = self.distance_players(robot)
         theta = robot.orientation
-
+        facteur = 0
         # On cumule la répulsion pour tous les joueurs proches
         for player, dist in distances:
             if dist < seuil_player and dist > 0:  # éviter division par zéro
               dx = robot.position[0] - player.position[0]
               dy = robot.position[1] - player.position[1]
-              facteur = force * (seuil_player - dist) / seuil_player
-              x += (dx / dist) * facteur
-              y += (dy / dist) * facteur
+              facteur = (seuil_player - dist) / seuil_player
+              x += (force * dx / dist) * facteur
+              y += (force * dy / dist) * facteur
 
         # Conversion du repère global -> repère robot
         repulsion_x = x * cos(theta) + y * sin(theta)
         repulsion_y = -x * sin(theta) + y * cos(theta)
-        return (repulsion_x, repulsion_y)
+        return [(repulsion_x, repulsion_y), facteur]
 
     
     def mouvement(self, robot, destination, vitesse_max, seuil_ball, seuil_player, force):
@@ -85,18 +85,11 @@ class Mouvement:
             # vecteur vers la balle
             vx, vy = self.vecteur_robot(robot, destination)
             # vecteur d’évitement
-            ex, ey = self.evite(robot, seuil_player, force)
-
-            print( ex, ey)
-            if abs(ey) <= abs(ex):
-                if ey < 0:
-                    ey = -abs(ex)
-                else:
-                    ey = abs(ex)
-
+            ex, ey = self.evite(robot, seuil_player, force)[0]
+            facteur = self.evite(robot, seuil_player, force)[1]
             # combinaison des deux vecteurs
-            vx_total = vx + ex
-            vy_total = vy + ey
+            vx_total = (1-facteur)*vx + facteur*ex
+            vy_total = (1-facteur)*vy + facteur*ey
 
             # normalisation
             norme = sqrt(vx_total**2 + vy_total**2)
