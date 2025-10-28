@@ -1,41 +1,49 @@
-import rsk
-from rsk import constants
-from math import sin, cos, tan, sqrt, atan2, pi
-from Formule import formule
+import rsk 
+from rsk import constants 
+import math 
+from math import sin, cos, tan, sqrt, atan2, pi , degrees
 
-class Jules:
-    def __init__(self, client):
-        self.client = client
-        self.f = formule(client)  
+class Jules: 
+    def __init__(self, client): 
+        self.client = client 
         
-    def Spot_shoot(self, robot):        
-        seuil = 0.2
-        B = self.f.position_ball()  
-        R = self.f.position_robot(robot) 
-        if B[0] < R[0]:
-            arrived = False            
-            while not arrived: 
-                D_B = formule.distance_ball(robot)  
-                A = formule.angle(robot)  
-                B = self.f.position_ball()  
-                R = formule.position_robot(robot)                
-                robot_1_arrived = robot.goto((B[0], B[1], A), wait=False)                                 
-                if D_B < seuil:                    
-                    robot_1_arrived = robot.goto((R[0], R[1], A), wait=False)
-                    robot.kick(1)  # Tirer
-                    arrived =robot_1_arrived
-                else:
-                    robot_1_arrived = robot.goto((B[0], B[1], A), wait=False)
-        else: 
-            seuil_recul = 0.5
-            if B[1] <= 0:
-                robot.goto((B[0], B[1], 0))
-                robot.kick(1)  
+    def Spot_shoot(self, robot): 
+        B = self.client.ball # Position de la balle
+        R = robot.position # Position du robot 
 
-             
+        # Alpha, Orientation vers le but
+        dx = constants.field_length / 2 + B[0]  
+        dy = B[1] 
+        O = atan2(dy,dx) 
+        
+        # Angle de départ du robot 
+        xd = constants.field_length / 2 + R[0] 
+        yd = R[1] 
+        A = atan2(yd,xd) 
+        
+        # Point vers lequel le robot doit aller 
+        rayon = 0.2
+        xk = B[0] + rayon * math.cos((O)) 
+        yk = B[1] + rayon * math.sin((O))
 
-            
 
-with rsk.Client() as client:
-    jules = Jules(client)
-    jules.Spot_shoot(client.green1)  
+        Og = degrees(O)
+        Ag = degrees(A)
+
+        steps = 5
+ 
+        for i in range (steps + 1):
+                AB = A + (i / steps)*(O - A)
+                x = B[0] + rayon*math.cos((AB))
+                y = B[1] + rayon*math.sin((AB))
+                robot.goto((x,y,O-pi))
+        robot.goto((B[0],B[1],O-pi))
+        robot.kick(1)
+
+  
+
+
+
+with rsk.Client() as client: 
+    jules = Jules(client) 
+    jules.Spot_shoot(client.green1)
