@@ -167,6 +167,7 @@ class Defense:
         return sqrt(D[0]**2 + D[1]**2)
     
     def defense_passive(self, robot, ball, zone_defense, erreur_placement, vitesse, marge):
+        (x, y) = robot.position
         delta_x, delta_y = ball[0]-zone_defense[0], ball[1]-zone_defense[1]
         theta = atan2(delta_y, delta_x)
         thetha_robot = robot.orientation
@@ -174,13 +175,16 @@ class Defense:
         x, y = self.position_defense(ball, zone_defense, marge)
         vx, vy = self.vecteur_robot(robot, (x,y))
         distance = self.distance_objectif(robot, (x,y))
-        if distance > erreur_placement:
-            robot.control(vx*vitesse, vy*vitesse, 0)
-            return
+        if (ball[1]<=0.45 or ball[1]>=-0.45) and ball[0]<=0.62:
+            if distance > erreur_placement:
+                robot.control(vx*vitesse, vy*vitesse, 0)
+                return
+            else:
+                robot.control(0, 0, 10*w)
+                return
         else:
-            robot.control(0, 0, 10*w)
-            return
-        
+            print(ball)
+            time.sleep(1)
 class Penalty:
     def __init__(self, client):
         self.client = client
