@@ -14,8 +14,8 @@ class Jules:
         B = self.client.ball # Position de la balle
         R = robot.position # Position du robot 
 
+        A = Formule.Orientation_ball(R) # Angle du robot au départ par rapport à l'horizontal
         O = Formule.Orientation_but() # Angle pour tirer dans les but par rapport à l'horizontal
-        A = Formule.Angle_Robot(robot) # Angle du robot au départ par rapport à l'horizontal
         
         Formule.Placement_vers_but(robot,A,O)
         robot.goto((B[0],B[1],O-pi)) # Une fois placé on avance et on tire
@@ -32,7 +32,7 @@ class Jules:
 
         if D1 > D2 :
             A = Formule.Angle_Robot(client.green2)
-            O = Formule.Orientation_objectif(P1) 
+            O = Formule.Orientation_ball(P1) 
             Formule.Placement_vers_objectif(client.green2,A,O)
             client.green2.goto((B[0],B[1],O))
             client.green2.kick(1)
@@ -41,5 +41,5 @@ class Jules:
 
 with rsk.Client() as client: 
     jules = Jules(client)
-    #jules.Pass() 
-    jules.Spot_shoot(client.green1)
+    jules.Pass() 
+    #jules.Spot_shoot(client.green1)
