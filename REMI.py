@@ -112,10 +112,9 @@ class Defense:
         self.client = client
 
 
-    def point_intermediaire(self, position1, position2, distance):
+    def point_intermediaire(self, position1, position2, distance, marge):
         x1, y1 = position1
         x2, y2 = position2
-        marge = 0.04
         D = sqrt((x2 - x1)**2 + (y2 - y1)**2)+0.04
 
         # Si la distance demandée dépasse la distance totale
@@ -134,12 +133,12 @@ class Defense:
 
         return distance_balle_robot
 
-    def position_defense(self, ball, zone_defense):
+    def position_defense(self, ball, zone_defense, marge):
         x_ball, y_ball = ball
         x_defense, y_defense = zone_defense
         distance_ball_but = sqrt((x_defense-x_ball)**2 + (y_defense-y_ball)**2)
         distance = self.distance_securite(distance_ball_but)
-        x_objectif, y_objectif = self.point_intermediaire(ball, zone_defense, distance)
+        x_objectif, y_objectif = self.point_intermediaire(ball, zone_defense, distance, marge)
         return x_objectif, y_objectif
     
     def vecteur_robot(self, robot, objectif):
@@ -167,12 +166,12 @@ class Defense:
         D = (C[0] - B[0], C[1] - B[1])
         return sqrt(D[0]**2 + D[1]**2)
     
-    def defense_passive(self, robot, ball, zone_defense, erreur_placement, vitesse):
+    def defense_passive(self, robot, ball, zone_defense, erreur_placement, vitesse, marge):
         delta_x, delta_y = ball[0]-zone_defense[0], ball[1]-zone_defense[1]
         theta = atan2(delta_y, delta_x)
         thetha_robot = robot.orientation
         w = (theta - thetha_robot + pi) % (2 * pi) - pi
-        x, y = self.position_defense(ball, zone_defense)
+        x, y = self.position_defense(ball, zone_defense, marge)
         vx, vy = self.vecteur_robot(robot, (x,y))
         distance = self.distance_objectif(robot, (x,y))
         if distance > erreur_placement:
@@ -181,3 +180,32 @@ class Defense:
         else:
             robot.control(0, 0, 10*w)
             return
+        
+class Penalty:
+    def __init__(self, client):
+        self.client = client
+
+    def is_penalized(self, team, robot_id):
+        return self.client.referee["teams"][team]["robots"][str(robot_id)]["penalized"]
+
+    def penalty_reason(self, team, robot_id):
+        return self.client.referee["teams"][team]["robots"][str(robot_id)].get("penalty_reason", "unknown")
+
+    def is_preempted(self, team, robot_id):
+        return self.client.referee["teams"][team]["robots"][str(robot_id)]["preempted"]
+
+    def preemption_reason(self, team, robot_id):
+        return self.client.referee["teams"][team]["robots"][str(robot_id)].get("preemption_reason", "unknown")
+
+    def can_move(self, team, robot_id):
+        penalized = self.is_penalized(team, robot_id)
+        preempted = self.is_preempted(team, robot_id)
+
+        if penalized:
+            print(f"🚫 Robot {robot_id} ({team}) pénalisé : {self.penalty_reason(team, robot_id)}")
+            return False
+        elif preempted:
+            print(f"⏸️ Robot {robot_id} ({team}) préempté : {self.preemption_reason(team, robot_id)}")
+            return False
+        else:
+            return True
