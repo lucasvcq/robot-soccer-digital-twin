@@ -28,7 +28,7 @@ class formule:
         O = atan2(dy,dx) 
         return O
     
-    def Orientation_ball(self,Objectif): # Angle par rapport à l'horizontale pour s'orienter vers l'objectif
+    def Orientation_ball(self,Objectif): # Angle par rapport à l'horizontale pour s'orienter vers la balle
         B = self.client.ball
         dx = Objectif[0] - B[0] 
         dy = Objectif[1] - B[1]
@@ -36,8 +36,7 @@ class formule:
         return O
     
 
-    
-    def Angle_Robot(self,robot):  # Aangle du robot par rapport à l'horizontale 
+    def Angle_Robot(self,robot):  # Angle du robot par rapport à l'horizontale 
         R = robot.position  
         dx = constants.field_length / 2 + R[0] 
         dy = R[1] 
@@ -56,13 +55,23 @@ class formule:
 
     def Placement_vers_objectif(self,robot,Angle_robot,Objectif):
         B = self.client.ball
-        rayon = 0.2
+        rayon = 0.15
         steps = 5
+        d = Objectif - Angle_robot
+        delta_angle = self.normalize_angle(d)
         for i in range (steps + 1):
-                AB = Angle_robot + (i / steps)*(Objectif - Angle_robot) # Angle des points positionné sur le cercle entre le robot et la balle
+                AB = Angle_robot + (i / steps)*delta_angle # Angle des points positionné sur le cercle entre le robot et la balle
                 x = B[0] + rayon*math.cos((AB)) # Génération des coordonnées des points intermediaire pour atteindre la position finale
                 y = B[1] + rayon*math.sin((AB))
-                robot.goto((x,y,Objectif))
+                robot.goto((x,y,Objectif-pi))
 
+
+    def normalize_angle(self,angle):
+    #Ramène un angle dans l'intervalle [-pi, pi]
+        while angle > math.pi:
+            angle -= 2 * math.pi
+        while angle < -math.pi:
+            angle += 2 * math.pi
+        return angle
 
     

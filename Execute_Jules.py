@@ -31,11 +31,19 @@ class Jules:
         D2 = Formule.distance_ball(client.green2)
 
         if D1 > D2 :
-            A = Formule.Angle_Robot(client.green2)
-            O = Formule.Orientation_ball(P1) 
+            A = Formule.Orientation_ball(P2)
+            O = Formule.Orientation_ball(P1) - pi
             Formule.Placement_vers_objectif(client.green2,A,O)
-            client.green2.goto((B[0],B[1],O))
+            client.green2.goto((B[0],B[1],O-pi))
             client.green2.kick(1)
+
+        else : 
+            A = Formule.Orientation_ball(P1)
+            O = Formule.Orientation_ball(P2) -pi 
+            Formule.Placement_vers_objectif(client.green1,A,O)
+            client.green1.goto((B[0],B[1],O-pi))
+            client.green1.kick(1)
+
 
 
 
