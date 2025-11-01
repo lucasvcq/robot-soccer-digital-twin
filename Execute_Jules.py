@@ -47,9 +47,9 @@ class Jules:
         if D1 > D2 :
             A = Formule.Angle_vecteur_balle_objectif(P2) # Angle du vecteur balle-robot passeur par rapport à l'horizontal
             O = Formule.Angle_vecteur_balle_objectif(P1) - pi # Angle du vecteur balle-robot qui va recevoir la passe par rapport à l'horizontal
-            Formule.Placement_vers_objectif(client.green2,A,O) # Fonction d'évitement de la balle et de placement
+            Formule.Placement_vers_objectif(client.green2,A,O) # Fonction d'évitement de la balle et de placement vers le robot receveur
             client.green2.goto((B[0],B[1],O-pi)) # Une fois placé on avance et on fait la passe
-            client.green2.kick(Formule.calc_kick_strength(DB,0.05,1.5))
+            client.green2.kick(Formule.calc_kick_strength(DB,0.05,1.5)) # Fonction qui calcule la force du tir en fonction de la distance
             print(Formule.calc_kick_strength(DB,0.01,1.5))
             print(DB)
 
@@ -62,13 +62,13 @@ class Jules:
             print(Formule.calc_kick_strength(DB,0.01,1.5))
             print(DB)
 
-    def Pass_objectif(self,Objectif):
+    def Pass_objectif(self,Objectif): # Faire une passe à endroit précis "objectif", on attend une coordonnée (x,y)
         Formule = formule(self.client)
         
         B = self.client.ball
-        P1 = client.green1.position # Position du robot 1
-        P2 = client.green2.position # Position du robot 2
-        PO = Objectif
+        P1 = client.green1.position # Coordonnée du robot 1
+        P2 = client.green2.position # Coordonnée du robot 2
+        PO = Objectif # Coordonnée de l'objectif
 
         D1 = Formule.distance_ball(client.green1) # Distance balle-robot1
         D2 = Formule.distance_ball(client.green2) # Distance balle-robot2
@@ -76,12 +76,12 @@ class Jules:
         DB = Formule.distance_ball_objectif() # Distance balle-objectif
 
         if D1 > D2 :
-            A = Formule.Angle_vecteur_balle_objectif(P2)
-            O = Formule.Angle_vecteur_balle_objectif(PO) - pi
+            A = Formule.Angle_vecteur_balle_objectif(P2) # Angle du vecteur balle-robot passeur par rapport à l'horizontal
+            O = Formule.Angle_vecteur_balle_objectif(PO) - pi # Angle du vecteur balle-objectif par rapport à l'horizontal
 
-            Formule.Placement_vers_objectif(client.green2,A,O)
-            client.green2.goto((B[0],B[1],O-pi))
-            client.green2.kick(Formule.calc_kick_strength(DB,0.05,1.5))
+            Formule.Placement_vers_objectif(client.green2,A,O) # Fonction d'évitement de la balle et de placement vers l'objectif
+            client.green2.goto((B[0],B[1],O-pi)) # Une fois placé on avance et on fait la passe
+            client.green2.kick(Formule.calc_kick_strength(DB,0.05,1.5)) # Fonction qui calcule la force du tir en fonction de la distance
             print(Formule.calc_kick_strength(DB,0.05,1.5))
         
         else : 
