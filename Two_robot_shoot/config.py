@@ -2,7 +2,7 @@ import math
 
 # --- Constantes de jeu ---
 ALIGN_DISTANCE = 0.18      # distance derrière la balle où se placer (m)
-CAPTURE_DISTANCE = 0.09    # distance à la balle pour déclencher le tir (m)
+CAPTURE_DISTANCE = 0.13    # distance à la balle pour déclencher le tir (m)
 ANGLE_TOL = math.radians(8) # tolérance d'orientation pour tirer (rad)
 LOOP_DT = 0.05             # période de la boucle principale (s)
 
@@ -16,7 +16,7 @@ AROUND_DISTANCE_BASE = ALIGN_DISTANCE * 1.2 # multiplicateur initial
 AROUND_DISTANCE_MAX_FACTOR = 3.0
 AROUND_DISTANCE_STEP_FACTOR = 1.25  # facteur multiplicatif appliqué à chaque essai
 AROUND_FORWARD_OFFSET = 0.02 # petit offset pour éviter d'être sur la ligne de tir
-AROUND_ARRIVAL_THRESH = 0.06   # distance pour considérer waypoint atteint (m)
+AROUND_ARRIVAL_THRESH = 0.1   # distance pour considérer waypoint atteint (m)
 AROUND_TIMEOUT = 3.0           # délai max pour atteindre waypoint (s)
 
 # --- Constantes de détection (needs_around) ---
