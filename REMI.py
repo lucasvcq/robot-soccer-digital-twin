@@ -115,7 +115,7 @@ class Defense:
     def point_intermediaire(self, position1, position2, distance, marge):
         x1, y1 = position1
         x2, y2 = position2
-        D = sqrt((x2 - x1)**2 + (y2 - y1)**2)+0.04
+        D = sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
         # Si la distance demandée dépasse la distance totale
         if distance > D:
@@ -175,16 +175,16 @@ class Defense:
         x, y = self.position_defense(ball, zone_defense, marge)
         vx, vy = self.vecteur_robot(robot, (x,y))
         distance = self.distance_objectif(robot, (x,y))
-        if (ball[1]<=0.45 or ball[1]>=-0.45) and ball[0]<=0.62:
+        if ((ball[1]<=0.45 and ball[1]>=-0.45) and ball[0]>=0.62):
+            print(ball)
+            time.sleep(1)
+        else:
             if distance > erreur_placement:
                 robot.control(vx*vitesse, vy*vitesse, 0)
                 return
             else:
                 robot.control(0, 0, 10*w)
                 return
-        else:
-            print(ball)
-            time.sleep(1)
 class Penalty:
     def __init__(self, client):
         self.client = client

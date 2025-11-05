@@ -10,8 +10,8 @@ with rsk.Client() as client:
     robot = client.green2
     vitesse = 2
     zone_defense = (1.84/2,0)
-    erreur_placement = 0.04
-    marge = 0.4
+    erreur_placement = 0.03
+    marge = 0.35
     while True:
         try:
             ball = client.ball
