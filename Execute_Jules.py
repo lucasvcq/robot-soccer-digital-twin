@@ -7,7 +7,7 @@ class Jules:
     def __init__(self, client): 
         self.client = client 
 
-    def test(self,robot):
+    def test(self,robot): # Permet de connaitre la distance max parcourue par la balle pour un kick(1)
         Formule = formule(self.client)
         P = Formule.calcul_coefficient(robot)
         print(f"La distance pour un kick(1) est {P}")
@@ -16,7 +16,6 @@ class Jules:
     def Spot_shoot(self): # Tire au milieu des buts
         Formule = formule(self.client)
 
-        B = self.client.ball # Position de la balle
         P1 = client.green1.position # Position du robot 1
         P2 = client.green2.position # Position du robot 2
 
@@ -29,14 +28,16 @@ class Jules:
             O = Formule.Angle_but() # Angle pour tirer dans les but par rapport à l'horizontal
         
             Formule.Placement_vers_objectif(client.green2,A,O) # Fonction d'évitement de la balle et de placement
-            client.green2.goto((B[0],B[1],O-pi)) # Une fois placé on avance et on tire
+            x,y = Formule.arret_balle(client.green2)
+            client.green2.goto((x,y,O-pi)) # Une fois placé on avance et on tire
             client.green2.kick(1)
         
         else : 
             A = Formule.Angle_vecteur_balle_objectif(P1) 
             O = Formule.Angle_but() 
             Formule.Placement_vers_objectif(client.green1,A,O)
-            client.green1.goto((B[0],B[1],O-pi)) 
+            x,y =Formule.arret_balle(client.green1)
+            client.green1.goto((x,y,O-pi)) 
             client.green1.kick(1)
 
         
@@ -55,18 +56,20 @@ class Jules:
             A = Formule.Angle_vecteur_balle_objectif(P2) # Angle du vecteur balle-robot passeur par rapport à l'horizontal
             O = Formule.Angle_vecteur_balle_objectif(P1) - pi # Angle du vecteur balle-robot qui va recevoir la passe par rapport à l'horizontal
             Formule.Placement_vers_objectif(client.green2,A,O) # Fonction d'évitement de la balle et de placement vers le robot receveur
-            client.green2.goto((B[0],B[1],O-pi)) # Une fois placé on avance et on fait la passe
-            client.green2.kick(Formule.calc_kick_strength(DB,0.05,0.92)) # Fonction qui calcule la force du tir en fonction de la distance
-            print(Formule.calc_kick_strength(DB,0.01,0.92))
+            x,y = Formule.arret_balle(client.green2)
+            client.green2.goto((x,y,O-pi)) # Une fois placé on avance et on fait la passe
+            client.green2.kick(Formule.calc_kick_strength(DB,0.99)) # Fonction qui calcule la force du tir en fonction de la distance
+            print(Formule.calc_kick_strength(DB,0.99))
             print(DB)
 
         else : 
             A = Formule.Angle_vecteur_balle_objectif(P1)
             O = Formule.Angle_vecteur_balle_objectif(P2) -pi 
             Formule.Placement_vers_objectif(client.green1,A,O)
-            client.green1.goto((B[0],B[1],O-pi))
-            client.green1.kick(Formule.calc_kick_strength(DB,0.05,0.92))
-            print(Formule.calc_kick_strength(DB,0.01,0.92))
+            x,y = Formule.arret_balle(client.green1)
+            client.green1.goto((x,y,O-pi))
+            client.green1.kick(Formule.calc_kick_strength(DB,0.99))
+            print(Formule.calc_kick_strength(DB,0.99))
             print(DB)
 
     def Pass_objectif(self,Objectif): # Faire une passe à endroit précis "objectif", on attend une coordonnée (x,y)
@@ -87,18 +90,20 @@ class Jules:
             O = Formule.Angle_vecteur_balle_objectif(PO) - pi # Angle du vecteur balle-objectif par rapport à l'horizontal
 
             Formule.Placement_vers_objectif(client.green2,A,O) # Fonction d'évitement de la balle et de placement vers l'objectif
-            client.green2.goto((B[0],B[1],O-pi)) # Une fois placé on avance et on fait la passe
-            client.green2.kick(Formule.calc_kick_strength(DB,0.05,0.92)) # Fonction qui calcule la force du tir en fonction de la distance
-            print(Formule.calc_kick_strength(DB,0.05,0.92))
+            x,y = Formule.arret_balle(client.green2)
+            client.green2.goto((x,y,O-pi)) # Une fois placé on avance et on fait la passe
+            client.green2.kick(Formule.calc_kick_strength(DB,0.99)) # Fonction qui calcule la force du tir en fonction de la distance
+            print(Formule.calc_kick_strength(DB,0.99))
         
         else : 
             A = Formule.Angle_vecteur_balle_objectif(P1)
             O = Formule.Angle_vecteur_balle_objectif(PO) - pi
 
             Formule.Placement_vers_objectif(client.green1,A,O)
-            client.green1.goto((B[0],B[1],O-pi))
-            client.green2.kick(Formule.calc_kick_strength(DB,0.05,0.92))
-            print(Formule.calc_kick_strength(DB,0.05,0.92))
+            x,y =Formule.arret_balle(client.green1)
+            client.green1.goto((x,y,O-pi))
+            client.green2.kick(Formule.calc_kick_strength(DB,0.99))
+            print(Formule.calc_kick_strength(DB,0.99))
 
 
 
@@ -110,7 +115,7 @@ class Jules:
 
 with rsk.Client() as client: 
     jules = Jules(client)
-    jules.test(client.green1)
+    #jules.test(client.green1)
     #jules.Spot_shoot()
-    #jules.Pass() 
+    jules.Pass() 
     #jules.Pass_objectif((1,0))
