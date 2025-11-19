@@ -6,7 +6,6 @@ import rsk
 from rsk import constants
 from field_utils import FieldUtils
 from robot_agent import RobotAgent
-# AroundPlanner n'est plus utilisé ici, seul RobotAgent l'utilise
 import config # Importe les constantes
 
 class TwoRobotsShooter:
