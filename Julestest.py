@@ -8,9 +8,7 @@ class Jules:
     def __init__(self, client): 
         self.client = client 
         
-    def Spot_shoot(self, robot): 
-        robot.goto((0,0,pi))
-        print(pi)
+    
      
 
 
