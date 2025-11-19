@@ -1,6 +1,6 @@
 from math import *
 
-class Mouvement:
+class remi:
     def __init__(self, client):
         self.client = client
 
@@ -106,25 +106,34 @@ class Mouvement:
             return False
 
     
-
-class Defense:
-    def __init__(self, client):
-        self.client = client
-
-
-    def point_intermediaire(self, position1, position2, distance, marge):
+    def point_intermediaire(self, position1, position2, distance, marge, role):
         x1, y1 = position1
         x2, y2 = position2
         D = sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
         # Si la distance demandée dépasse la distance totale
         if distance > D:
-            raise ValueError("La distance d dépasse la distance entre A et B")
-        
+            raise ValueError("La distance demandée dépasse la distance entre A et B")
+
         ratio = distance / D
-        x = x1 + (x2 - x1) * (ratio + marge)
-        y = y1 + (y2 - y1) * (ratio + marge)
+        x = x1 + (x2 - x1) * ratio
+        y = y1 + (y2 - y1) * ratio
+
+        if role == "back":
+            dx = x1 - x2
+            dy = y1 - y2
+            norme = sqrt(dx**2 + dy**2)
+            x = x2 + dx / norme * marge
+            y = y2 + dy / norme * marge
+        elif role == "front":
+            dx = x2 - x1
+            dy = y2 - y1
+            norme = sqrt(dx**2 + dy**2)
+            x = x1 + dx / norme * marge
+            y = y1 + dy / norme * marge
+
         return (x, y)
+
     
     def distance_securite(self, distance_ball_but):
         taille_but = 0.6
@@ -133,61 +142,71 @@ class Defense:
 
         return distance_balle_robot
 
-    def position_defense(self, ball, zone_defense, marge):
+    def position_defense(self, ball, zone_defense, marge, role):
         x_ball, y_ball = ball
         x_defense, y_defense = zone_defense
         distance_ball_but = sqrt((x_defense-x_ball)**2 + (y_defense-y_ball)**2)
         distance = self.distance_securite(distance_ball_but)
-        x_objectif, y_objectif = self.point_intermediaire(ball, zone_defense, distance, marge)
+        x_objectif, y_objectif = self.point_intermediaire(ball, zone_defense, distance, marge, role)
         return x_objectif, y_objectif
     
-    def vecteur_robot(self, robot, objectif):
-        """Vecteur vers la balle dans le repère du robot"""
-        vx_terrain, vy_terrain = self.vecteur_direction(robot, objectif)
-        theta = robot.orientation
-        vx = cos(theta) * vx_terrain + sin(theta) * vy_terrain
-        vy = -sin(theta) * vx_terrain + cos(theta) * vy_terrain
-        norme = sqrt(vx**2 + vy**2)
-        if norme != 0:
-            vx_robot = vx / norme
-            vy_robot = vy / norme
-        else:
-            vx_robot, vy_robot = 0, 0
-        return (vx_robot, vy_robot)
     
-    def vecteur_direction(self, robot, objectif):
-        C = robot.position
-        B = objectif
-        return (B[0] - C[0], B[1] - C[1])
-    
-    def distance_objectif(self, robot, objectif):
-        C = robot.position
-        B = objectif
-        D = (C[0] - B[0], C[1] - B[1])
-        return sqrt(D[0]**2 + D[1]**2)
-    
-    def defense_passive(self, robot, ball, zone_defense, erreur_placement, vitesse, marge):
+    def defense_passive(self, robot, ball, zone_defense, erreur_placement, vitesse, marge, seuil_ball, role):
         (x, y) = robot.position
-        delta_x, delta_y = ball[0]-zone_defense[0], ball[1]-zone_defense[1]
+        delta_x, delta_y = ball[0] - zone_defense[0], ball[1] - zone_defense[1]
         theta = atan2(delta_y, delta_x)
-        thetha_robot = robot.orientation
-        w = (theta - thetha_robot + pi) % (2 * pi) - pi
-        x, y = self.position_defense(ball, zone_defense, marge)
-        vx, vy = self.vecteur_robot(robot, (x,y))
-        distance = self.distance_objectif(robot, (x,y))
-        if ((ball[1]<=0.45 and ball[1]>=-0.45) and ball[0]>=0.62):
-            print(ball)
-            time.sleep(1)
-        else:
-            if distance > erreur_placement:
-                robot.control(vx*vitesse, vy*vitesse, 0)
-                return
+        theta_robot = robot.orientation
+        w = (theta - theta_robot + pi) % (2 * pi) - pi
+
+        # Position de défense à distance 'marge' de la balle
+        x_def, y_def = self.position_defense(ball, zone_defense, marge, role)
+        vx, vy = self.vecteur_robot(robot, (x_def, y_def))
+
+        # Distances
+        distance_to_def = self.distance_objectif(robot, (x_def, y_def))
+        distance_to_ball = self.distance_objectif(robot, ball)
+
+        # Cas où la balle est dans la zone de tir
+        if role == "back":
+            if ((ball[1] <= 0.45 and ball[1] >= -0.45) and ball[0] >= 0.5):
+                if distance_to_ball <= seuil_ball:
+                    xs, ys = self.vecteur_direction(robot, ball)
+                    theta_shoot = atan2(ys, xs)
+                    robot.goto((ball[0], ball[1], theta_shoot),wait=False)
+                    robot.kick()
+                else:
+                    # Rapprochement vers la balle pour tirer
+                    vx_ball, vy_ball = self.vecteur_robot(robot, ball)
+                    robot.control(vx_ball * vitesse, vy_ball * vitesse, 0)
+
             else:
-                robot.control(0, 0, 10*w)
-                return
-class Penalty:
-    def __init__(self, client):
-        self.client = client
+                # Positionnement défensif
+                if distance_to_def > erreur_placement:
+                    robot.control(vx * vitesse, vy * vitesse, 0)
+                else:
+                    # Ajustement de l'orientation uniquement
+                    robot.control(0, 0, 10 * w)
+        elif role == "front":
+            seuil = int(0.92/3)
+            if ball[0]>seuil:
+                if distance_to_ball <= seuil_ball:
+                    xs, ys = self.vecteur_direction(robot, ball)
+                    theta_shoot = atan2(ys, xs)
+                    robot.goto((ball[0], ball[1], theta_shoot),wait=False)
+                    robot.kick()
+                else:
+                    # Rapprochement vers la balle pour tirer
+                    vx_ball, vy_ball = self.vecteur_robot(robot, ball)
+                    robot.control(vx_ball * vitesse, vy_ball * vitesse, 0)
+            else:
+                # Positionnement défensif
+                if distance_to_def > erreur_placement:
+                    robot.control(vx * vitesse, vy * vitesse, 0)
+                else:
+                    # Ajustement de l'orientation uniquement
+                    robot.control(0, 0, 10 * w)
+
+
 
     def is_penalized(self, team, robot_id):
         return self.client.referee["teams"][team]["robots"][str(robot_id)]["penalized"]
