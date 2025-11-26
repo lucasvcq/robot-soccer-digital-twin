@@ -1,15 +1,15 @@
 import math
 import time
+from math import pi
+import rsk
 from field_utils import FieldUtils
 from around_planner import AroundPlanner
-import config
-import rsk  # Pour l'exception ClientError
-
+import config  # Assurez-vous que config.py contient vos constantes
 
 class RobotAgent:
     def __init__(self, robot, goal, name):
-        self.robot = robot      # L'objet rsk (ex: client.green1)
-        self.goal = goal
+        self.robot = robot  # L'objet rsk (ex: client.green1)
+        self.goal = goal    # Tuple (x, y) ou Position du coéquipier/but
         self.name = name
 
         # État interne du robot
@@ -17,136 +17,184 @@ class RobotAgent:
         self.around_start_time = 0.0
         self.around_side = 0  # -1=gauche, +1=droite
 
-    def set_target(self, new_target):
-        """Permet de mettre à jour la cible (But ou point de passe) dynamiquement."""
-        self.goal = new_target
-        
-    # --- Méthodes utilitaires ---
     def distance_to_ball(self, ball):
         return FieldUtils.dist(self.robot.position, ball)
 
+    def calc_kick_strength(self, distance, d_max):
+        """
+        Calcule la force de frappe (entre 0 et 1) en fonction de la distance.
+        """
+        d_min = 0.01
+
+        # Si la cible est plus loin que d_max, puissance max (1.0)
+        if distance >= d_max:
+            return 1.0
+        
+        # Sécurité pour éviter les divisions par zéro
+        if distance <= d_min:
+            return 0.1 # Touchette minimale
+
+        # Interpolation linéaire
+        kick = (distance - d_min) / (d_max - d_min)
+        
+        # Bornage strict entre 0.0 et 1.0
+        return max(0.0, min(1.0, kick))
+    
+    def needs_around(self, ball):
+        """Décision : CE robot a-t-il besoin de contourner ?"""
+        robot_pos = self.robot.position
+        
+        u_rg = FieldUtils.unit_vector(robot_pos, self.goal)
+        v_rb = (ball[0] - robot_pos[0], ball[1] - robot_pos[1])
+        d = FieldUtils.dist(robot_pos, ball)
+        dot = v_rb[0]*u_rg[0] + v_rb[1]*u_rg[1]
+        
+        # Angle entre le vecteur Robot->Balle et Robot->But
+        angle_rb_deg = abs(math.degrees(FieldUtils.wrap(
+            FieldUtils.angle(robot_pos, ball) - FieldUtils.angle(robot_pos, self.goal)
+        )))
+        
+        # Cas 1 : Robot clairement entre balle & but -> Priorité absolue (Reculer/Contourner)
+        if FieldUtils.is_robot_between_ball_and_goal(robot_pos, ball, self.goal, angle_threshold_deg=config.BETWEEN_ANGLE_THRESH_DEG):
+            return True
+
+        # Cas 2 : Balle bien devant, alignée -> Pas besoin de contourner
+        if (dot > config.FRONT_DOT) and (angle_rb_deg < config.FRONT_ANGLE_DEG):
+            return False
+
+        # Cas 3 : Balle sur le côté ou très mal alignée -> Contourner
+        if (dot < 0) or (angle_rb_deg > config.SIDE_ANGLE_DEG):
+            return True
+
+        # Cas 4 : Balle trop proche avec mauvais angle -> Prudence
+        if (d < config.DIST_CLOSE) and ((dot < 0.2) or (angle_rb_deg > 45.0)):
+            return True
+
+        return False
+
     def _start_around(self, ball):
-        """Initialise le contournement autour de la balle."""
-        if self.is_going_around:
+        """Initialise le contournement (choix du côté)."""
+        if self.is_going_around: 
             return
 
         rpos = self.robot.position
         wp_left = AroundPlanner.compute_around_waypoint(ball, self.goal, side=-1)
         wp_right = AroundPlanner.compute_around_waypoint(ball, self.goal, side=+1)
-
-        # Choix du côté le plus court
+        
+        # On choisit le côté le plus proche
         if FieldUtils.dist(rpos, wp_left) <= FieldUtils.dist(rpos, wp_right):
-            self.around_side = -1
+            self.around_side = -1 # Gauche
+            side_str = "left"
             first_wp = wp_left
-            side_str = "gauche"
         else:
-            self.around_side = 1
+            self.around_side = 1 # Droite
+            side_str = "right"
             first_wp = wp_right
-            side_str = "droite"
 
         self.is_going_around = True
         self.around_start_time = time.time()
-
-        print(f"[{self.name}] Début contournement par la {side_str}, waypoint={first_wp}")
+        print(f"[{self.name}] Début contournement par la {side_str}.")
+        
         try:
-            self.robot.goto((first_wp[0], first_wp[1], -math.pi), wait=False)
+            self.robot.goto((first_wp[0], first_wp[1], -pi), wait=False)
         except Exception as e:
             print(f"[{self.name}] goto(around_wp) a échoué: {e}")
-            self._stop_around("Erreur goto initial")
+            self.is_going_around = False
+            self.around_side = 0
 
     def _stop_around(self, reason=""):
-        """Termine proprement le contournement."""
-        if not self.is_going_around:
-            return
-        print(f"[{self.name}] Fin contournement. Raison: {reason}")
-        self.is_going_around = False
-        self.around_start_time = 0.0
-        self.around_side = 0
+        """Termine le contournement."""
+        if self.is_going_around:
+            print(f"[{self.name}] Fin contournement. Raison: {reason}")
+            self.is_going_around = False
+            self.around_start_time = 0.0
+            self.around_side = 0
+            time.sleep(0.05) # Petite pause pour stabiliser
 
-    # --- Machine à états principale ---
     def update_state(self, ball):
+        """Machine à états de l'agent. Appelée à chaque boucle."""
+
         rpos = self.robot.position
         rtheta = self.robot.orientation
-
+        
+        # Point cible derrière la balle
         behind = FieldUtils.behind_point(ball, self.goal, config.ALIGN_DISTANCE)
         d_to_behind = FieldUtils.dist(rpos, behind)
 
-        # ÉTAPE 1 : SE PLACER DERRIÈRE LA BALLE
-        if d_to_behind > config.AROUND_ARRIVAL_THRESH:
-            return self._handle_around(ball, behind, d_to_behind)
+        # --- ÉTAT 1: EN COURS DE CONTOURNEMENT ---
+        if self.is_going_around:
+            # 1a. Timeout ?
+            elapsed = time.time() - self.around_start_time
+            if elapsed > config.AROUND_TIMEOUT:
+                self._stop_around(f"Timeout ({elapsed:.1f}s)")
+                return False 
 
-        # ÉTAPE 2 : S'ORIENTER VERS LE BUT
-        if self._handle_orientation(rpos, rtheta):
-            return False
-
-        # ÉTAPE 3 : APPROCHE ET TIR
-        return self._handle_kick(ball, rpos, rtheta)
-
-    # --- Sous-étapes de la machine à états ---
-    def _handle_around(self, ball, behind, d_to_behind):
-        """Gère le placement autour de la balle pour atteindre 'behind'."""
-        rpos = self.robot.position
-
-        # Si on ne contourne pas encore → démarrage
-        if not self.is_going_around:
-            print(f"[{self.name}] (1) Pas aligné (d_to_behind={d_to_behind:.3f}m).")
-            self._start_around(ball)
-            return False
-
-        # Vérifier timeout
-        elapsed = time.time() - self.around_start_time
-        if elapsed > config.AROUND_TIMEOUT:
-            self._stop_around(f"Timeout ({elapsed:.2f}s)")
-            return False
-
-        # Recalcul dynamique du waypoint
-        current_wp = AroundPlanner.compute_around_waypoint(ball, self.goal, side=self.around_side)
-        try:
-            self.robot.goto((current_wp[0], current_wp[1], -math.pi), wait=False)
-        except Exception as e:
-            self._stop_around(f"Erreur GOTO : {e}")
-            return False
-
-        # Vérifier arrivée au waypoint
-        if FieldUtils.dist(rpos, current_wp) <= config.AROUND_ARRIVAL_THRESH:
-            print(f"[{self.name}] Arrivé au waypoint, passage vers 'behind'.")
-            self._stop_around("Waypoint atteint")
-            self.robot.goto((behind[0], behind[1], -math.pi), wait=True)
-            return False
-
-        return False
-
-    def _handle_orientation(self, rpos, rtheta):
-        """Oriente le robot vers le but si nécessaire."""
-        desired_theta = FieldUtils.angle(rpos, self.goal)
-        ang_err = FieldUtils.wrap(desired_theta - rtheta)
-
-        if abs(ang_err) > config.ANGLE_TOL:
-            print(f"[{self.name}] (2) S'oriente (erreur {math.degrees(ang_err):.1f}°)")
-            self.robot.goto((rpos[0], rpos[1], desired_theta), wait=True)
-            return True
-        return False
-
-    def _handle_kick(self, ball, rpos, rtheta):
-        """Phase finale : approche et tir."""
-        d_to_ball = FieldUtils.dist(rpos, ball)
-        desired_theta = FieldUtils.angle(rpos, self.goal)
-        ang_err = FieldUtils.wrap(desired_theta - rtheta)
-
-        # Approche finale
-        if d_to_ball > config.CAPTURE_DISTANCE:
-            print(f"[{self.name}] (3a) Approche finale (d={d_to_ball:.3f}m)")
-            u_rg = FieldUtils.unit_vector(rpos, self.goal)
-            target_pos = (ball[0] - u_rg[0]*0.02, ball[1] - u_rg[1]*0.02, desired_theta)
-            self.robot.goto(target_pos, wait=True)
-            return False
-
-        # Tir
-        if d_to_ball <= config.CAPTURE_DISTANCE and abs(ang_err) <= config.ANGLE_TOL:
+            # 1b. Le chemin s'est-il libéré ?
+            if not self.needs_around(ball):
+                self._stop_around("Chemin dégagé")
+                return False 
+            
+            # 1c. Continuer vers le waypoint dynamique
+            current_target_wp = AroundPlanner.compute_around_waypoint(ball, self.goal, side=self.around_side)
             try:
-                print(f"[{self.name}] (3b) KICK !")
-                self.robot.kick()
-                return True
-            except rsk.ClientError as e:
-                print(f"[{self.name}] Erreur lors du kick: {e}")
+                self.robot.goto((current_target_wp[0], current_target_wp[1], -pi), wait=False)
+            except:
+                pass
+            return False 
+
+        # --- ÉTAT 2: ARRIVÉ À DESTINATION (ALIGNEMENT & TIR) ---
+        if d_to_behind <= config.AROUND_ARRIVAL_THRESH:
+            
+            # S'assurer qu'on n'est plus en mode contournement
+            self._stop_around("Arrivé derrière")
+
+            # 2a. Orientation
+            desired_theta = FieldUtils.angle(rpos, self.goal)
+            ang_err = FieldUtils.wrap(desired_theta - rtheta)
+            
+            if abs(ang_err) > config.ANGLE_TOL:
+                #print(f"[{self.name}] Orientation (err {math.degrees(ang_err):.1f}°)")
+                self.robot.goto((rpos[0], rpos[1], desired_theta), wait=True)
+                time.sleep(0.05) 
+                return False
+            
+            # 2b. Approche finale
+            d_to_ball = FieldUtils.dist(rpos, ball)
+            if d_to_ball > config.CAPTURE_DISTANCE:
+                u_rg = FieldUtils.unit_vector(rpos, self.goal)
+                target_pos = (ball[0] - u_rg[0]*0.02, ball[1] - u_rg[1]*0.02, desired_theta)
+                self.robot.goto(target_pos, wait=True)
+                return False 
+            
+            # 2c. TIR (Puissance Variable)
+            if d_to_ball <= config.CAPTURE_DISTANCE and abs(ang_err) <= config.ANGLE_TOL:
+                try:
+                    # Calcul de la distance vers l'objectif (Passe ou But)
+                    dist_to_target = FieldUtils.dist(rpos, self.goal)
+                    
+                    # Distance max pour force max (ex: 3m). 
+                    # Vous pouvez mettre cette valeur dans config.KICK_MAX_DIST
+                    max_kick_dist = getattr(config, 'KICK_MAX_DIST', 3.0) 
+                    
+                    power = self.calc_kick_strength(dist_to_target, max_kick_dist)
+                    
+                    print(f"[{self.name}] KICK! (Dist={dist_to_target:.2f}m -> Power={power:.2f})")
+                    self.robot.kick(power=power)
+                    return True 
+                except rsk.ClientError as e:
+                    print(f"[{self.name}] Erreur kick: {e}")
+            
+            return False 
+
+        # --- ÉTAT 3: DÉCISION DE NAVIGATION ---
+        # On n'est ni en train de contourner, ni arrivé.
+        if self.needs_around(ball):
+            self._start_around(ball)
+        else:
+            # Chemin libre, on fonce au point "behind"
+            try:
+                self.robot.goto((behind[0], behind[1], -pi), wait=False)
+            except:
+                pass
+
         return False
