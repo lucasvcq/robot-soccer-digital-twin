@@ -265,3 +265,26 @@ class remi:
             return False
         else:
             return True
+
+    def position_before_shoot(self, ball, objectif_shoot, offset):
+        dx = ball[0] - objectif_shoot[0]
+        dy = ball[1] - objectif_shoot[1]
+        L = sqrt(dx**2 + dy**2)
+        x_position_shoot = ball[0] - offset * ((-dx)/L)   
+        y_position_shoot = ball[1] - offset * ((-dy)/L)
+        return (x_position_shoot, y_position_shoot)
+
+    def attaque(self, robot, ball, objectif_shoot, offset, seuil=0.03):
+        x_before_shoot, y_before_shoot = self.position_before_shoot(self, ball, objectif_shoot, offset)[0], self.position_before_shoot(self, ball, objectif_shoot, offset)[1]
+        x, y = robot.position
+        distance = sqrt((x_before_shoot-x)**2,(y_before_shoot-y)**2)
+        if distance >= seuil:
+            xs, ys = self.vecteur_direction(ball, objectif_shoot)
+            theta_shoot = atan2(ys, xs)
+            robot.goto((ball[0], ball[1], theta_shoot), wait=False)
+        else:
+            xs, ys = self.vecteur_direction(robot, ball)
+            theta_shoot = atan2(ys, xs)
+            robot.goto((ball[0], ball[1], theta_shoot), wait=False)
+            robot.kick()
+        
