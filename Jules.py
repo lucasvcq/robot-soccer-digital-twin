@@ -188,7 +188,7 @@ class formule:
         P = robot_passeur.position # Coordonnée du robot 1
         PO = Objectif # Coordonnée de l'objectif
         
-        DB = Formule.distance_ball_objectif() # Distance balle-objectif
+        DB = Formule.distance_ball_objectif(Objectif) # Distance balle-objectif
         A = Formule.Angle_vecteur_balle_objectif(P)
         O = Formule.Angle_vecteur_balle_objectif(PO) - pi
 
@@ -196,7 +196,13 @@ class formule:
         x,y =Formule.arret_balle(robot_passeur)
         robot_passeur.goto((x,y,O-pi))
         robot_passeur.kick(Formule.calc_kick_strength(DB,0.99))
-        print(Formule.calc_kick_strength(DB,0.99))
+
+    def deplcement_objectif(self,robot,objectif):
+        orientation = self.Angle_but()
+        robot.goto((objectif[0],objectif[1],orientation), avoid_obstacles=True)
+        
+        
+
 
 
     
