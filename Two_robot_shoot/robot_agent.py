@@ -17,6 +17,10 @@ class RobotAgent:
         self.around_start_time = 0.0
         self.around_side = 0  # -1=gauche, +1=droite
 
+    def set_target(self, new_target):
+        """Permet de mettre à jour la cible (But ou point de passe) dynamiquement."""
+        self.goal = new_target
+        
     # --- Méthodes utilitaires ---
     def distance_to_ball(self, ball):
         return FieldUtils.dist(self.robot.position, ball)
