@@ -1,4 +1,3 @@
-import rsk 
 import math
 import time 
 from math import sin, cos, tan, sqrt, atan2, pi
@@ -44,34 +43,201 @@ class formule:
         return O
     
 # On attend dans () la position de l'objectif sous forme (x,y)
-    def Angle_vecteur_balle_objectif(self,Objectif): # Angle du vecteur balle-objectif par rapport à l'horizontal
-        B = self.client.ball
+    def Angle_vecteur_objectif_objectif(self,Objectif1,Objectif2): # Angle du vecteur balle-objectif par rapport à l'horizontal
 
-        dx = Objectif[0] - B[0] # distance en x entre l'objectif et la balle
-        dy = Objectif[1] - B[1] # distance en y entre l'objectif et la balle
+        dx = Objectif1[0] - Objectif2[0] # distance en x entre l'objectif et la balle
+        dy = Objectif1[1] - Objectif2[1] # distance en y entre l'objectif et la balle
 
         O = atan2(dy,dx)
         return O
     
-
+    def equation_droite(self, p1, p2):
+        x1, y1 = p1
+        x2, y2 = p2
+    
+        a = y1 - y2
+        b = x2 - x1
+        c = (x1 * y2) - (x2 * y1)
+        return a, b, c
+    
+    def angle_entre_droites(self, eq1, eq2):
+        a1, b1, c1 = eq1
+        a2, b2, c2 = eq2
+        
+        # 1. Produit Scalaire des vecteurs normaux (a, b)
+        dot_product = (a1 * a2) + (b1 * b2)
+        
+        # 2. Normes (longueurs) des vecteurs normaux
+        norm1 = math.sqrt(a1**2 + b1**2)
+        norm2 = math.sqrt(a2**2 + b2**2)
+                    
+        # 3. Calcul du cosinus
+        # On utilise abs() pour forcer l'angle aigu (0 à 90 degrés)
+        cos_theta = abs(dot_product) / (norm1 * norm2)
+        
+        # Sécurité numérique : parfois le calcul flottant donne 1.0000000002
+        # ce qui ferait planter acos. On limite entre -1 et 1.
+        cos_theta = min(1.0, max(-1.0, cos_theta))
+        
+        # 4. Calcul de l'angle (en radians puis degrés)
+        theta_rad = math.acos(cos_theta)
+        theta_deg = math.degrees(theta_rad)
+        
+        return theta_deg
+    
 # Fonction qui cré des points autour de la balle formant un arc de cercle, pour l'éviter et se positionner vers l'objectif    
 # On attend dans () le robot, l'angle du vecteur balle-objectif pour ça utiliser la fonction juste au dessus, 
 # et l'angle entre l'horizontal et la droite reliant l'objectif au centre du terrain 
-    def Placement_vers_objectif(self,robot,Angle_robot,Objectif): 
+    def Placement_vers_objectif(self, robot, Angle_robot, Objectif): 
         B = self.client.ball
 
-        rayon = 0.2 # rayon de l'arc de cercle
-        steps = 5 # Nombre de points créés pour éviter la balle
-        d = Objectif - Angle_robot
+        points = []
+        # CORRECTION 1 : Il faut 5 valeurs si steps=4 (0,1,2,3,4)
+        # J'ai ajouté 0.2 à la fin pour fermer la marche
+        rayon = [0.3, 0.2, 0.2, 0.15] 
+        steps = 3
 
+        Angle_robot_norm = self.normalize_angle(Angle_robot)
+        Objectif_norm = self.normalize_angle(Objectif)
+        d = Objectif_norm - Angle_robot_norm        
         delta_angle = self.normalize_angle(d)
+        
+        # Création de la liste des points de passage
+        for i in range(steps + 1):  
+            AB = Angle_robot_norm + (i / steps) * delta_angle 
+            # Sécurité pour ne pas crasher si la liste rayon est trop courte
+            r = rayon[i] if i < len(rayon) else rayon[-1] 
+            
+            x = B[0] + r * math.cos(AB)
+            y = B[1] + r * math.sin(AB)
+            points.append((x, y))
 
-        for i in range (steps + 1):
-                AB = Angle_robot + (i / steps)*(delta_angle) # Angle des points positionné sur le cercle 
-                x = B[0] + rayon*math.cos((AB)) # Génération des coordonnées des points intermediaire pour atteindre la position finale
-                y = B[1] + rayon*math.sin((AB))
-                robot.goto((x,y,Objectif-pi), avoid_obstacles=True)  # Déplacement jusqu'au point souhaité
+        # Petit alignement final précis vers l'objectif de tir
+        fin_x, fin_y = points[-1]
 
+        # --- CORRECTION 2 : On parcourt TOUS les points avec le mode "Vitesse Max" ---
+        
+        for index, point_cible in enumerate(points):
+            cible_x = point_cible[0]
+            cible_y = point_cible[1]
+
+            # On décide de la précision : 
+            # Si c'est le DERNIER point (le tir), on veut être précis (0.05m)
+            # Si c'est un point de passage, on peut être moins précis pour garder la vitesse (0.15m)
+            if index == len(points) - 1:
+                distance_arret = 0.04
+            else:
+                distance_arret = 0.15
+
+            # Boucle de pilotage vers le point actuel
+            while True:
+                x_robot, y_robot = robot.position
+                theta_robot = robot.orientation
+                
+                # Calcul de la distance vers le point cible actuel
+                dx = cible_x - x_robot
+                dy = cible_y - y_robot
+                dist = sqrt(dx**2 + dy**2)
+
+                # Condition de passage au point suivant
+                if dist < distance_arret:
+                    break # On sort du while, le "for" passe au point suivant
+
+                # --- Calcul vectoriel (Ta méthode manuelle) ---
+                vx_local = dx * cos(theta_robot) + dy * sin(theta_robot)
+                vy_local = -dx * sin(theta_robot) + dy * cos(theta_robot)
+
+                # --- Vitesse Maximale Constante ---
+                VITESSE_CIBLE = 0.5 
+                norme_vecteur = sqrt(vx_local**2 + vy_local**2)
+
+                if norme_vecteur > 0:
+                    vitesse_x = (vx_local / norme_vecteur) * VITESSE_CIBLE
+                    vitesse_y = (vy_local / norme_vecteur) * VITESSE_CIBLE
+                else:
+                    vitesse_x = 0; vitesse_y = 0
+
+                robot.control(vitesse_x, vitesse_y, 0)
+                time.sleep(0.05)
+
+        robot.goto((fin_x, fin_y, Objectif - pi),wait=False)
+
+    def Placement_vers_objectif2(self, robot, Angle_robot, Objectif): 
+        B = self.client.ball
+
+        points = []
+        rayon = [0.15,0.2,0.2,0.2,0.15]
+        steps = 4
+
+        Angle_robot_norm = self.normalize_angle(Angle_robot)
+        Objectif_norm = self.normalize_angle(Objectif)
+        d = Objectif_norm - Angle_robot_norm        
+        delta_angle = self.normalize_angle(d)
+        
+        for i in range(steps + 1):  
+            AB = Angle_robot_norm + (i / steps) * delta_angle 
+            x = B[0] + rayon[i] * math.cos(AB)
+            y = B[1] + rayon[i] * math.sin(AB)
+            points.append((x, y))
+
+        index = 0
+        fin_x, fin_y = points[-1]
+
+        while True:
+            x_robot, y_robot = robot.position
+            theta_robot = robot.orientation
+            dx = points[0][0] - x_robot
+            dy = points[0][1] - y_robot
+
+            distance = self.distance_objectif_objectif(robot.position,points[0])
+            print(distance)
+
+            if distance < 0.1 :
+                break
+
+            # 3. La formule magique (Rotation de repère)
+            # On transforme le vecteur global (dx, dy) en vecteur robot (vx, vy)
+            # C'est de la trigonométrie : on tourne le vecteur de l'angle -theta
+            vx_local = dx * cos(theta_robot) + dy * sin(theta_robot)
+            vy_local = -dx * sin(theta_robot) + dy * cos(theta_robot)
+
+            # --- 4. Vitesse Maximale Constante ---
+            VITESSE_CIBLE = 0.5  # Vitesse désirée en m/s (ex: 1.0 c'est très rapide)
+
+            # On calcule la norme (la longueur) du vecteur local
+            norme_vecteur = sqrt(vx_local**2 + vy_local**2)
+
+            if norme_vecteur > 0:
+                # On "normalise" le vecteur (on le ramène à une longueur de 1)
+                # Puis on multiplie par la vitesse cible pour forcer l'allure
+                vitesse_x = (vx_local / norme_vecteur) * VITESSE_CIBLE
+                vitesse_y = (vy_local / norme_vecteur) * VITESSE_CIBLE
+            else:
+                vitesse_x = 0
+                vitesse_y = 0
+
+            # 5. Envoyer la commande
+            robot.control(vitesse_x, vitesse_y, 0)
+            
+            time.sleep(0.05)
+
+        while index < steps - 1:
+            a = robot.position
+            b = points[index+1]
+
+            distance = self.distance_objectif_objectif(a, b)
+            Seuil_atteinte_point = 0.4
+            
+            index += 1
+
+            ox = points[index][0]
+            oy = points[index][1]
+
+            robot.goto((ox, oy, Objectif-pi), wait = False)
+            time.sleep(0.25)
+
+        robot.goto((fin_x, fin_y, Objectif-pi))
+    
 
     def normalize_angle(self,angle):
     #Ramène un angle dans l'intervalle [-pi, pi]
@@ -121,7 +287,7 @@ class formule:
             i = i + 1 
             print(i)
             B = self.client.ball
-            A = self.Angle_vecteur_balle_objectif(robot.position)
+            A = self.Angle_vecteur_objectif_objectif(robot.position,self.client.ball)
             self.Placement_vers_objectif(robot, A, Objectif[i])
             x,y = self.arret_balle(robot)
             robot.goto((x,y,Objectif[i]-pi),avoid_obstacles=True)
@@ -137,7 +303,7 @@ class formule:
     def rapprochement_passeur(self, robot_a_rapprocher, distance_rapprochement):
             P1 = robot_a_rapprocher.position
             B = self.client.ball
-            O = self.Angle_vecteur_balle_objectif(P1) - pi
+            O = self.Angle_vecteur_objectif_objectif(P1,B) - pi
 
             d = distance_rapprochement
         
@@ -161,11 +327,10 @@ class formule:
         P2 = robot_passeur.position
         DB = self.distance_objectif_objectif(P1,P2)
        
-        A = self.Angle_vecteur_balle_objectif(P2) # Angle du vecteur balle-robot passeur par rapport à l'horizontal
-        O = self.Angle_vecteur_balle_objectif(P1) - pi # Angle du vecteur balle-robot qui va recevoir la passe par rapport à l'horizontal
+        A = self.Angle_vecteur_objectif_objectif(P2,self.client.ball) # Angle du vecteur balle-robot passeur par rapport à l'horizontal
+        O = self.Angle_vecteur_objectif_objectif(P1,self.client.ball) - pi # Angle du vecteur balle-robot qui va recevoir la passe par rapport à l'horizontal
     
         self.Placement_vers_objectif(robot_passeur,A,O) # Fonction d'évitement de la balle et de placement vers le robot receveur
-
         x,y = self.arret_balle(robot_passeur)
         robot_passeur.goto((x,y,O-pi)) # Une fois placé on avance et on fait la passe
         robot_passeur.kick(self.calc_kick_strength(DB,0.99)) # Fonction qui calcule la force du tir en fonction de la distance
@@ -173,7 +338,7 @@ class formule:
     def Spot_shoot(self,robot_tireur): # Tire au milieu des buts
         P = robot_tireur.position # Position du robot tireur
         
-        A = self.Angle_vecteur_balle_objectif(P) 
+        A = self.Angle_vecteur_objectif_objectif(P,self.client.ball) 
         O = self.Angle_but() 
             
         self.Placement_vers_objectif(robot_tireur,A,O)
@@ -189,17 +354,17 @@ class formule:
         PO = Objectif # Coordonnée de l'objectif
         
         DB = Formule.distance_ball_objectif(Objectif) # Distance balle-objectif
-        A = Formule.Angle_vecteur_balle_objectif(P)
-        O = Formule.Angle_vecteur_balle_objectif(PO) - pi
+        A = Formule.Angle_vecteur_objectif_objectif(P,self.client.ball)
+        O = Formule.Angle_vecteur_objectif_objectif(PO,self.client.ball) - pi
 
         Formule.Placement_vers_objectif(robot_passeur,A,O)
         x,y =Formule.arret_balle(robot_passeur)
         robot_passeur.goto((x,y,O-pi))
         robot_passeur.kick(Formule.calc_kick_strength(DB,0.99))
 
-    def deplcement_objectif(self,robot,objectif):
+    def deplacement_objectif(self,robot,objectif):
         orientation = self.Angle_but()
-        robot.goto((objectif[0],objectif[1],orientation), avoid_obstacles=True)
+        robot.goto((objectif[0],objectif[1],orientation),avoid_obstacles=True)
         
         
 
