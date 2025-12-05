@@ -5,6 +5,7 @@ ALIGN_DISTANCE = 0.18      # distance derrière la balle où se placer (m)
 CAPTURE_DISTANCE = 0.13    # distance à la balle pour déclencher le tir (m)
 ANGLE_TOL = math.radians(8) # tolérance d'orientation pour tirer (rad)
 LOOP_DT = 0.05             # période de la boucle principale (s)
+KICK_MAX_DIST = 0.5  # À 0.5 mètres ou plus, on tire à puissance 1.0 (max)
 
 # --- Constantes de changement d'acteur ---
 MIN_ACTOR_TIME = 0.6       # temps min avant de changer d'acteur (s)

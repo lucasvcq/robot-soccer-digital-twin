@@ -265,3 +265,49 @@ class remi:
             return False
         else:
             return True
+
+    def position_before_shoot(self, ball, objectif_shoot, offset):
+        # compute unit vector from ball -> goal (objectif_shoot)
+        dx = objectif_shoot[0] - ball[0]
+        dy = objectif_shoot[1] - ball[1]
+        L = sqrt(dx**2 + dy**2)
+        if L == 0:
+            # fallback: no meaningful direction, stay on the ball
+            return (ball[0], ball[1])
+        ux = dx / L
+        uy = dy / L
+        # position behind the ball (away from the goal) by 'offset'
+        x_position_shoot = ball[0] - ux * offset
+        y_position_shoot = ball[1] - uy * offset
+        return (x_position_shoot, y_position_shoot)
+
+    def attaque(self, robot, ball, objectif_shoot, offset, seuil=0.03):
+        # safety: require ball to be not None and a valid tuple
+        if ball is None:
+            return
+
+        # compute the desired position behind the ball
+        x_before_shoot, y_before_shoot = self.position_before_shoot(ball, objectif_shoot, offset)
+
+        # robot and ball positions
+        x, y = robot.position
+        xb, yb = ball
+
+        # correct Euclidean distance
+        distance = sqrt((x_before_shoot - x) ** 2 + (y_before_shoot - y) ** 2)
+
+        if distance >= seuil:
+            # if far from the "behind the ball" position, go there and face the goal
+            xs = objectif_shoot[0] - xb
+            ys = objectif_shoot[1] - yb
+            theta_shoot = atan2(ys, xs)
+            # go to the intermediate position (behind the ball), facing the goal
+            robot.goto((x_before_shoot, y_before_shoot, theta_shoot), wait=False)
+        else:
+            # close enough: go to the ball, face it and kick
+            xs, ys = self.vecteur_direction(robot, ball)  # robot -> ball
+            theta_shoot = atan2(ys, xs)
+            robot.goto((xb, yb, theta_shoot), wait=False)
+            robot.kick()
+
+        
