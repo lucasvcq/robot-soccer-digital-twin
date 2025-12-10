@@ -33,13 +33,25 @@ class formule:
         return sqrt(D[0]**2 + D[1]**2)
 
 
-    def Angle_but(self):  # Angle entre l'axe des x et la balle
+    def Angle_but(self, terrain):  # Angle entre l'axe des x et la balle
         B = self.client.ball
+        
+        #Définir la position exacte du but visé (x, y)
+        if terrain == "gauche":
+            # Le but gauche est en X négatif 
+            but_x = constants.field_length / 2 
+        else: 
+            # Le but droit est en X positif 
+            but_x = -constants.field_length / 2
+            
+        but_y = 0 # Le but est toujours centré en hauteur (Y=0)
 
-        dx = constants.field_length / 2 + B[0]  # distance en x entre les cages et la balle
-        dy = B[1] # distance en y entre le milieu des cages et la balle
+        # 2. Calcul du vecteur (Balle -> But)
+        dx = but_x - B[0]
+        dy = but_y - B[1]
 
-        O = atan2(dy,dx)  
+        # 3. Calcul de l'angle
+        O = atan2(dy, dx) - pi 
         return O
     
 # On attend dans () la position de l'objectif sous forme (x,y)
@@ -51,118 +63,10 @@ class formule:
         O = atan2(dy,dx)
         return O
     
-    def equation_droite(self, p1, p2):
-        x1, y1 = p1
-        x2, y2 = p2
-    
-        a = y1 - y2
-        b = x2 - x1
-        c = (x1 * y2) - (x2 * y1)
-        return a, b, c
-    
-    def angle_entre_droites(self, eq1, eq2):
-        a1, b1, c1 = eq1
-        a2, b2, c2 = eq2
-        
-        # 1. Produit Scalaire des vecteurs normaux (a, b)
-        dot_product = (a1 * a2) + (b1 * b2)
-        
-        # 2. Normes (longueurs) des vecteurs normaux
-        norm1 = math.sqrt(a1**2 + b1**2)
-        norm2 = math.sqrt(a2**2 + b2**2)
-                    
-        # 3. Calcul du cosinus
-        # On utilise abs() pour forcer l'angle aigu (0 à 90 degrés)
-        cos_theta = abs(dot_product) / (norm1 * norm2)
-        
-        # Sécurité numérique : parfois le calcul flottant donne 1.0000000002
-        # ce qui ferait planter acos. On limite entre -1 et 1.
-        cos_theta = min(1.0, max(-1.0, cos_theta))
-        
-        # 4. Calcul de l'angle (en radians puis degrés)
-        theta_rad = math.acos(cos_theta)
-        theta_deg = math.degrees(theta_rad)
-        
-        return theta_deg
-    
 # Fonction qui cré des points autour de la balle formant un arc de cercle, pour l'éviter et se positionner vers l'objectif    
 # On attend dans () le robot, l'angle du vecteur balle-objectif pour ça utiliser la fonction juste au dessus, 
 # et l'angle entre l'horizontal et la droite reliant l'objectif au centre du terrain 
     def Placement_vers_objectif(self, robot, Angle_robot, Objectif): 
-        B = self.client.ball
-
-        points = []
-        # CORRECTION 1 : Il faut 5 valeurs si steps=4 (0,1,2,3,4)
-        # J'ai ajouté 0.2 à la fin pour fermer la marche
-        rayon = [0.3, 0.2, 0.2, 0.15] 
-        steps = 3
-
-        Angle_robot_norm = self.normalize_angle(Angle_robot)
-        Objectif_norm = self.normalize_angle(Objectif)
-        d = Objectif_norm - Angle_robot_norm        
-        delta_angle = self.normalize_angle(d)
-        
-        # Création de la liste des points de passage
-        for i in range(steps + 1):  
-            AB = Angle_robot_norm + (i / steps) * delta_angle 
-            # Sécurité pour ne pas crasher si la liste rayon est trop courte
-            r = rayon[i] if i < len(rayon) else rayon[-1] 
-            
-            x = B[0] + r * math.cos(AB)
-            y = B[1] + r * math.sin(AB)
-            points.append((x, y))
-
-        # Petit alignement final précis vers l'objectif de tir
-        fin_x, fin_y = points[-1]
-
-        # --- CORRECTION 2 : On parcourt TOUS les points avec le mode "Vitesse Max" ---
-        
-        for index, point_cible in enumerate(points):
-            cible_x = point_cible[0]
-            cible_y = point_cible[1]
-
-            # On décide de la précision : 
-            # Si c'est le DERNIER point (le tir), on veut être précis (0.05m)
-            # Si c'est un point de passage, on peut être moins précis pour garder la vitesse (0.15m)
-            if index == len(points) - 1:
-                distance_arret = 0.04
-            else:
-                distance_arret = 0.15
-
-            # Boucle de pilotage vers le point actuel
-            while True:
-                x_robot, y_robot = robot.position
-                theta_robot = robot.orientation
-                
-                # Calcul de la distance vers le point cible actuel
-                dx = cible_x - x_robot
-                dy = cible_y - y_robot
-                dist = sqrt(dx**2 + dy**2)
-
-                # Condition de passage au point suivant
-                if dist < distance_arret:
-                    break # On sort du while, le "for" passe au point suivant
-
-                # --- Calcul vectoriel (Ta méthode manuelle) ---
-                vx_local = dx * cos(theta_robot) + dy * sin(theta_robot)
-                vy_local = -dx * sin(theta_robot) + dy * cos(theta_robot)
-
-                # --- Vitesse Maximale Constante ---
-                VITESSE_CIBLE = 0.5 
-                norme_vecteur = sqrt(vx_local**2 + vy_local**2)
-
-                if norme_vecteur > 0:
-                    vitesse_x = (vx_local / norme_vecteur) * VITESSE_CIBLE
-                    vitesse_y = (vy_local / norme_vecteur) * VITESSE_CIBLE
-                else:
-                    vitesse_x = 0; vitesse_y = 0
-
-                robot.control(vitesse_x, vitesse_y, 0)
-                time.sleep(0.05)
-
-        robot.goto((fin_x, fin_y, Objectif - pi),wait=False)
-
-    def Placement_vers_objectif2(self, robot, Angle_robot, Objectif): 
         B = self.client.ball
 
         points = []
@@ -251,7 +155,6 @@ class formule:
 # On attend dans (), la distance entre la balle et le robot tireur, la distance max de la balle lorsqu'on kick(1)
     def calc_kick_strength(self,distance, d_max):     #Calcule la force de frappe (entre 0 et 1) en fonction de la distance.
         d_min = 0.01
-
         if distance >= d_max:     #d_max : distance maximale pour une frappe forte
             return 1.0
     # Interpolation linéaire
@@ -335,11 +238,11 @@ class formule:
         robot_passeur.goto((x,y,O-pi)) # Une fois placé on avance et on fait la passe
         robot_passeur.kick(self.calc_kick_strength(DB,0.99)) # Fonction qui calcule la force du tir en fonction de la distance
 
-    def Spot_shoot(self,robot_tireur): # Tire au milieu des buts
+    def Spot_shoot(self,robot_tireur,terrain): # Tire au milieu des buts
         P = robot_tireur.position # Position du robot tireur
         
         A = self.Angle_vecteur_objectif_objectif(P,self.client.ball) 
-        O = self.Angle_but() 
+        O = self.Angle_but(terrain) 
             
         self.Placement_vers_objectif(robot_tireur,A,O)
         
@@ -362,9 +265,15 @@ class formule:
         robot_passeur.goto((x,y,O-pi))
         robot_passeur.kick(Formule.calc_kick_strength(DB,0.99))
 
-    def deplacement_objectif(self,robot,objectif):
-        orientation = self.Angle_but()
-        robot.goto((objectif[0],objectif[1],orientation),avoid_obstacles=True)
+    def deplacement_objectif(self, robot, terrain):
+        Angle_Vers_But = self.Angle_but(terrain) 
+        A = self.Angle_vecteur_objectif_objectif(robot.position, self.client.ball)
+        
+        self.Placement_vers_objectif(robot, A, Angle_Vers_But)
+
+        x, y = self.arret_balle(robot)
+        robot.goto((x, y, Angle_Vers_But - pi))
+
         
         
 

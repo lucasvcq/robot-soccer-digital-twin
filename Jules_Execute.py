@@ -10,15 +10,14 @@ class action :
         self.client = client
         self.Formule = formule(client)    
 
-    def Tire_vers_le_but(self,robot1,robot2):
+    def Tire_vers_le_but(self,robot1,robot2,terrain):
         D1 = self.Formule.distance_ball(robot1) # Distance balle-robot1
         D2 = self.Formule.distance_ball(robot2) # Distance balle-robot2
 
         if D1 > D2 :
-            self.Formule.Spot_shoot(robot2)
-
+            self.Formule.Spot_shoot(robot2,terrain)
         else:
-            self.Formule.Spot_shoot(robot1)
+            self.Formule.Spot_shoot(robot1,terrain)
 
     def Pass_coéquipier(self, robot1, robot2):
         D1 = self.Formule.distance_ball(robot1) # Distance balle-robot1
@@ -56,45 +55,56 @@ class action :
             t1.join()
             t2.join()
 
-    def Pass_vers_objectif(self,robot1,robot2,objectif):
+    def Pass_vers_objectif(self,robot1,robot2,objectif,terrain):
         D1 = self.Formule.distance_ball(robot1) # Distance balle-robot1
         D2 = self.Formule.distance_ball(robot2) # Distance balle-robot2
+
+        D = self.Formule.distance_ball_objectif(objectif)
 
         if D1 > D2 : 
             t1 = threading.Thread(
             target = self.Formule.Pass_objectif,
-            args=(robot2,objectif) # En 1er robot_reçeveur puis en 2ème robot_passeur
+            args=(robot2,objectif) # En 1er robot_reçeveur puis en 2ème l'objectifr
             )
-
-            t2 = threading.Thread(
-            target = self.Formule.deplacement_objectif,
-            args=(robot1, objectif) # Robot_reçeveur, distance à laquelle on veut le rapprocher de la balle
-            )
-
             t1.start()
-            t2.start()
             t1.join()
-            t2.join()
 
+            while True :
+                D = self.Formule.distance_ball_objectif(objectif)
+                print(D)
+                if D < 0.3 :
+                    t2 = threading.Thread(
+                    target = self.Formule.deplacement_objectif,
+                    args=(robot1, terrain) # Robot_reçeveur, distance à laquelle on veut le rapprocher de la balle
+                    )
+                    t2.start()
+                    t2.join()
+                    break
+                time.sleep(1)
+
+            robot1.kick(1)
+            
         else :
             t1 = threading.Thread(
             target = self.Formule.Pass_objectif,
             args=(robot1, objectif)
             )
 
-            t2 = threading.Thread(
-            target = self.Formule.deplacement_objectif,
-            args=(robot2, objectif)
-            )
-
-            t1.start()
-            t2.start()
-            t1.join()
-            t2.join()
+            while True :
+                D = self.Formule.distance_ball_objectif(objectif)
+                print(D)
+                if D < 0.3 :
+                    t2 = threading.Thread(
+                    target = self.Formule.deplacement_objectif,
+                    args=(robot2, self.client.ball, terrain) # Robot_reçeveur, distance à laquelle on veut le rapprocher de la balle
+                    )
+                    t2.start()
+                    t2.join()
+                    break
+                time.sleep(1)
         
-
 
 with rsk.Client() as client:
     Action = action(client)
-    Action.Pass_coéquipier(client.green1, client.green2)
-            
+    Action.Pass_vers_objectif(client.green1, client.green2,(-0.5,-0.4),"droit")
+    #Action.Tire_vers_le_but(client.green1,client.green2,"droite")      
