@@ -10,7 +10,7 @@ TEAM = 'green'          # Couleur de l'équipe
 # Choisissez le mode pour tester la puissance de frappe :
 # "GOAL" = Vise le but adverse (Tir fort)
 # "PASS" = Vise un coéquipier virtuel proche (Passe douce)
-TEST_MODE = "PASS" 
+TEST_MODE = "GOAL" 
 
 def main():
     print("Démarrage du client RSK...")
@@ -21,10 +21,10 @@ def main():
             robot = client.green1 # ou client.green[ROBOT_ID]
             # Le but adverse est généralement en x positif ou négatif selon le côté.
             # Pour la démo, disons que le but adverse est à droite (x=1.8, y=0)
-            enemy_goal = (1.8, 0.0) 
+            enemy_goal = (-1.8, 0.0) 
         else:
             robot = client.blue1
-            enemy_goal = (-1.8, 0.0)
+            enemy_goal = (1.8, 0.0)
 
         # 2. Définition de la cible selon le mode
         if TEST_MODE == "GOAL":
