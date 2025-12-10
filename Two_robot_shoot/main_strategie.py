@@ -76,7 +76,7 @@ def main():
 
                 time.sleep(0.01) # Petite pause pour ne pas surcharger le CPU
 
-        except KeyboardInterrupt:
+        except:
             print("\nArrêt du programme.")
 
 if __name__ == "__main__":

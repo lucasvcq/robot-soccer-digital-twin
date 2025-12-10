@@ -1,7 +1,7 @@
 import threading
 import time
 import rsk
-from test_remi import remi
+from REMI import remi
 from math import *
 
 # ====================================================== #
@@ -36,7 +36,7 @@ class GameManager:
 # ================= ROBOT CONTROL ======================= #
 # ====================================================== #
 
-def controle_robot(remi_obj, robot, robot_id, game, vitesse, err, marge, seuil_ball, role, seuil):
+def controle_robot(remi_obj, robot, robot_id, game, vitesse, err, marge, seuil_ball, role, seuil_player, force_player, seuil_ball_esquive, force_ball):
 
     while True:
         try:
@@ -84,16 +84,20 @@ with rsk.Client() as client:
     err = 0.04
     marge_front = 0.3
     marge_back  = 0.2
-    seuil_ball = 0.2
     seuil = 0.2
+    seuil_ball = 0.2
+    seuil_player = 0.5
+    force_player = 1
+    seuil_ball_esquive = 0.4
+    force_ball = 1
 
     t1 = threading.Thread(
         target=controle_robot,
-        args=(Remi, robot1, "1", game, vitesse, err, marge_front, seuil_ball, "front", seuil)
+        args=(Remi, robot1, "1", game, vitesse, err, marge_front, seuil_ball, "front", seuil_player, force_player, seuil_ball_esquive, force_ball)
     )
     t2 = threading.Thread(
         target=controle_robot,
-        args=(Remi, robot2, "2", game, vitesse, err, marge_back, seuil_ball, "back", seuil)
+        args=(Remi, robot2, "2", game, vitesse, err, marge_back, seuil_ball, "back", seuil_player, force_player, seuil_ball_esquive, force_ball)
     )
 
     t1.start()
