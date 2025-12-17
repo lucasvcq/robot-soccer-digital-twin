@@ -16,7 +16,7 @@ AROUND_DISTANCE_BASE = ALIGN_DISTANCE * 1.2 # multiplicateur initial
 AROUND_DISTANCE_MAX_FACTOR = 3.0
 AROUND_DISTANCE_STEP_FACTOR = 1.25  # facteur multiplicatif appliqué à chaque essai
 AROUND_FORWARD_OFFSET = 0.02 # petit offset pour éviter d'être sur la ligne de tir
-AROUND_ARRIVAL_THRESH = 0.1   # distance pour considérer waypoint atteint (m)
+AROUND_ARRIVAL_THRESH = 0.05   # distance pour considérer waypoint atteint (m)
 AROUND_TIMEOUT = 3.0           # délai max pour atteindre waypoint (s)
 
 # --- Constantes de détection (needs_around) ---

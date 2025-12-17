@@ -7,6 +7,7 @@ from rsk import constants
 from field_utils import FieldUtils
 from robot_agent import RobotAgent
 import config # Importe les constantes
+import navigation
 
 class TwoRobotsShooter:
 
@@ -76,7 +77,7 @@ class TwoRobotsShooter:
             print(f"Nouvel acteur : {self.active_agent.name} (d1={d1:.2f}, d2={d2:.2f})")
             # Quand on change, on réinitialise l'état de contournement de l'ancien acteur
             if self.passive_agent:
-                 self.passive_agent._stop_around("Perte du focus (devient passif)")
+                 self.passive_agent.nav_state = navigation.AvoidanceState()
                  
         return True # Acteur choisi (ou gardé)
 
