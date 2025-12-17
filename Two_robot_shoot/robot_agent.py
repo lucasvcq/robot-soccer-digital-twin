@@ -13,8 +13,6 @@ class RobotAgent:
         # On remplace toutes les vieilles variables d'état par celle-ci :
         self.nav_state = navigation.AvoidanceState()
 
-    # robot_agent.py
-
     def update_state(self, ball):
         rpos = self.robot.position
         rtheta = self.robot.orientation
@@ -36,8 +34,6 @@ class RobotAgent:
         # 3. TIR ET APPROCHE FINALE
         # C'est ici qu'on corrige le "mal centré" : le robot va avancer doucement vers la balle
         return self._handle_kick(ball, rpos, rtheta)
-
-    # --- Sous-étapes restantes (Orientation et Tir) ---
     
     def _handle_orientation(self, rpos, rtheta):
         """Oriente le robot vers le but si nécessaire."""
