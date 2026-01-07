@@ -7,18 +7,26 @@ import navigation  # <--- IMPORT IMPORTANT
 class RobotAgent:
     def __init__(self, robot, goal, name):
         self.robot = robot
-        self.goal = goal
+        self.goal = goal # Cible par défaut
         self.name = name
-
-        # On remplace toutes les vieilles variables d'état par celle-ci :
         self.nav_state = navigation.AvoidanceState()
+        
+        # NOUVEAU : Puissance de tir par défaut
+        self.kick_power = 1.0 
+
+    # NOUVEAU : Permet de changer la cible en cours de route (But ou Copain)
+    def set_target(self, new_target):
+        self.goal = new_target
+        
+    # NOUVEAU : Permet de changer la puissance (Passe douce vs Tir fort)
+    def set_kick_power(self, power):
+        self.kick_power = power
 
     def update_state(self, ball):
+        # ... (Le début reste identique : navigation vers la balle ...)
         rpos = self.robot.position
         rtheta = self.robot.orientation
-
-        # 1. NAVIGATION MACRO (Approche rapide)
-        # Renvoie True dès qu'on est à < 6cm
+        
         is_in_zone = navigation.aller_derriere_balle(
             self.robot, ball, self.goal, self.nav_state
         )
@@ -26,13 +34,9 @@ class RobotAgent:
         if not is_in_zone:
             return False
 
-        # 2. ORIENTATION (Correction précise)
-        # Le robot s'arrête et corrige son angle
         if self._handle_orientation(rpos, rtheta):
             return False
 
-        # 3. TIR ET APPROCHE FINALE
-        # C'est ici qu'on corrige le "mal centré" : le robot va avancer doucement vers la balle
         return self._handle_kick(ball, rpos, rtheta)
     
     def _handle_orientation(self, rpos, rtheta):
@@ -47,24 +51,26 @@ class RobotAgent:
         return False
 
     def _handle_kick(self, ball, rpos, rtheta):
-        """Phase finale : approche et tir."""
+        # ... (Calculs d'approche identiques)
         d_to_ball = FieldUtils.dist(rpos, ball)
         desired_theta = FieldUtils.angle(rpos, self.goal)
         ang_err = FieldUtils.wrap(desired_theta - rtheta)
 
-        # Approche finale (les derniers centimètres)
+        # Approche finale
         if d_to_ball > config.CAPTURE_DISTANCE:
+            # ... (Code identique)
             u_rg = FieldUtils.unit_vector(rpos, self.goal)
             target_pos = (ball[0] - u_rg[0]*0.02, ball[1] - u_rg[1]*0.02, desired_theta)
             self.robot.goto(target_pos, wait=True)
             return False
 
-        # Tir
+        # MODIFICATION DU TIR : Utilisation de la puissance variable
         if d_to_ball <= config.CAPTURE_DISTANCE and abs(ang_err) <= config.ANGLE_TOL:
             try:
-                print(f"[{self.name}] KICK !")
-                self.robot.kick()
-                # On reset l'état de navigation après un tir au cas où
+                print(f"[{self.name}] KICK (Power={self.kick_power}) !")
+                # On utilise la puissance configurée
+                self.robot.kick(power=self.kick_power) 
+                
                 self.nav_state = navigation.AvoidanceState()
                 return True
             except rsk.ClientError as e:
