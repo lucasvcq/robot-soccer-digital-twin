@@ -4,20 +4,21 @@ import time
 
 with rsk.Client() as client:
     Remi = remi(client)
-
-    vitesse_max = 1.0
-    seuil_cible = 0.1
-    seuil_player = 0.5
-    force_player = 1
-    seuil_ball_esquive = 0.4
-    force_ball = 1
-    x,y=client.ball
-    destination = (x+0.1,y)
+    robot = client.green1
+    zone_attaque = (0.9, 0)
+    erreur_placement = 0.04
+    vitesse = 1
+    marge = 0.2
+    seuil_ball = 0.2
+    role = "direct"
+    seuil = 0.2
+    cote = -1
     while True:
         try:
-            x,y=client.ball
-            destination = (x+0.1,y)
-            fini = Remi.mouvement_esquive_balle(client.green2, destination, client.ball, vitesse_max, seuil_cible, seuil_player, force_player, seuil_ball_esquive, force_ball)
+            ballx, bally= client.ball
+            ball = (ballx, bally)
+            print(ball)
+            fini = Remi.defense_passive(robot, ball, zone_attaque, erreur_placement, vitesse, marge, seuil_ball, role, cote, seuil)
         except Exception as e:
             print("Erreur :", e)   # Affiche la vraie erreur → indispensable pour débug
             Remi.can_move("green", 2)

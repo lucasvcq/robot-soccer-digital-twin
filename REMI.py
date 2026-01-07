@@ -205,7 +205,6 @@ class remi:
 
         distance_to_def = self.distance_objectif(robot, (x_def, y_def))
         distance_to_ball = self.distance_objectif(robot, ball)
-        distance_ball_def = self.distance_objectif((x_def, y_def), ball)
 
         # logique back / front (conserve ton intention)
         if role == "back":
@@ -222,10 +221,7 @@ class remi:
                     robot.control(vx_ball * vitesse, vy_ball * vitesse, 0)
             else:
                 if distance_to_def > erreur_placement:
-                    if distance_to_def > distance_ball_def:
-                        robot.goto()
-                    else:
-                        robot.control(vx * vitesse, vy * vitesse, 0)
+                    robot.control(vx * vitesse, vy * vitesse, 0)
                 else:
                     robot.control(0, 0, 4 * w)  # rotation plus douce
         elif role == "front":
@@ -240,10 +236,7 @@ class remi:
                     robot.control(vx_ball * vitesse, vy_ball * vitesse, 0)
             else:
                 if distance_to_def > erreur_placement:
-                    if distance_to_def > distance_ball_def:
-                        robot.goto()
-                    else:
-                        robot.control(vx * vitesse, vy * vitesse, 0)
+                    robot.control(vx * vitesse, vy * vitesse, 0)
                 else:
                     robot.control(0, 0, 4 * w)
 

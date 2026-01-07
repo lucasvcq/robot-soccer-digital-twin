@@ -62,6 +62,31 @@ class remi:
                 distance_player.append((player, distance))
         return distance_player
 
+    def distance_players_to_ball(self,ball):
+        """
+        Renvoie une liste de tuples (player, distance) représentant 
+        la distance entre la balle et chaque joueur présent sur le terrain.
+        """
+        try:
+            ball_pos = ball
+        except Exception:
+            print("Erreur : Impossible de récupérer la position de la balle.")
+            return []
+        try:
+            players = [self.client.green1, self.client.green2, self.client.blue1, self.client.blue2]
+        except Exception:
+            players = []
+        distance_to_ball = []
+        for player in players:
+            if player is not None:
+                player_pos = player.position
+                ecart_x = ball_pos[0] - player_pos[0]
+                ecart_y = ball_pos[1] - player_pos[1]
+                distance = sqrt(ecart_x**2 + ecart_y**2)
+                distance_to_ball.append((player, distance))
+
+        return distance_to_ball
+
     def evite(self, robot, seuil_player, force):
         """Renvoie [ (repulsion_x, repulsion_y), facteur ].
            - repulsion est un vecteur (dans le repère robot) normalisé si non nul.
@@ -310,4 +335,6 @@ class remi:
             robot.goto((xb, yb, theta_shoot), wait=False)
             robot.kick()
 
+    def score_total(self,team):
+        self.client.referee["teams"][team]["score"]
         
