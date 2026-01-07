@@ -154,7 +154,7 @@ class formule:
 
 # On attend dans (), la distance entre la balle et le robot tireur, la distance max de la balle lorsqu'on kick(1)
     def calc_kick_strength(self,distance, d_max):     #Calcule la force de frappe (entre 0 et 1) en fonction de la distance.
-        d_min = 0.01
+        d_min = 0.05
         if distance >= d_max:     #d_max : distance maximale pour une frappe forte
             return 1.0
     # Interpolation linéaire
@@ -273,6 +273,59 @@ class formule:
 
         x, y = self.arret_balle(robot)
         robot.goto((x, y, Angle_Vers_But - pi))
+
+    def suivre_balle(self,robot,terrain):
+        # Initialisation
+        for v in self.vitesse_ball():  # Itère sur le générateur de vitesse
+            if v < 0.15:
+                print("Balle arrêtée ou trop lente, arrêt du suivi.")
+                break
+
+            ball_pos = self.client.ball
+            P_receveur = robot.position
+
+            # Calcul du vecteur Robot -> Balle
+            dx = ball_pos[0] - P_receveur[0]
+            dy = ball_pos[1] - P_receveur[1]
+            norme = math.sqrt(dx**2 + dy**2)
+
+            if norme > 0:
+                ux = dx / norme
+                uy = dy / norme
+
+                # Cible : 3 cm derrière la balle
+                dist_cible = 0.1
+                x_dest = ball_pos[0] - dist_cible * ux
+                y_dest = ball_pos[1] - dist_cible * uy
+                O = self.Angle_but(terrain) - math.pi
+
+                # Mise à jour de la destination
+                robot.goto((x_dest, y_dest, O), wait=False)
+
+            time.sleep(0.05)  # Pause pour éviter la surcharge
+
+
+    def vitesse_ball(self):
+        last_B = self.client.ball
+        last_time = time.time()
+
+        while True:
+            time.sleep(0.1)  # Attendre 0.1 seconde
+            B = self.client.ball
+            current_time = time.time()
+            dt = current_time - last_time  # Temps écoulé en secondes
+
+            # Calcul de la distance parcourue
+            d = math.sqrt((B[0] - last_B[0])**2 + (B[1] - last_B[1])**2)
+
+            # Calcul de la vitesse
+            v = d / dt if dt > 0 else 0  # Éviter la division par zéro
+
+            # Mise à jour pour la prochaine itération
+            last_B = B
+            last_time = current_time
+
+            yield v  # Retourne la vitesse à chaque itération
 
         
         
