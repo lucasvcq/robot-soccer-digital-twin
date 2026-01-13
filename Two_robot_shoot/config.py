@@ -25,3 +25,18 @@ FRONT_ANGLE_DEG = 55.0  # <55° : balle globalement devant, bon axe
 SIDE_ANGLE_DEG = 70.0   # >70° : balle clairement sur le côté
 DIST_CLOSE = 0.35       # distance courte → prudence pour contournement
 BETWEEN_ANGLE_THRESH_DEG = 25.0 # Angle pour "is_robot_between_ball_and_goal"
+
+# --- NOUVEAU : CONSTANTES DE STRATÉGIE ---
+# Distance devant le receveur pour la passe (m)
+# 0.40 = la balle arrive 40cm devant le robot
+PASS_DEPTH_OFFSET = 0.40  
+
+# Si l'attaquant est à plus de X mètres du but, il envisage la passe
+DIST_SHOOT_LIMIT = 1.0    
+
+# Puissance des tirs
+POWER_SHOOT = 1.0         # Frappe au but (Max)
+POWER_PASS = 0.6          # Passe (Dosée)
+
+# Position du but adverse (A ajuster selon le coté)
+GOAL_X = -1.83/2
