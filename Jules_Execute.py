@@ -10,14 +10,9 @@ class action :
         self.client = client
         self.Formule = formule(client)    
 
-    def Tire_vers_le_but(self,robot1,robot2,terrain):
-        D1 = self.Formule.distance_ball(robot1) # Distance balle-robot1
-        D2 = self.Formule.distance_ball(robot2) # Distance balle-robot2
+    def Tire_vers_le_but(self,robot,terrain):     
+            self.Formule.Spot_shoot(robot,terrain)
 
-        if D1 > D2 :
-            self.Formule.Spot_shoot(robot2,terrain)
-        else:
-            self.Formule.Spot_shoot(robot1,terrain)
 
     def Pass_coéquipier(self, robot1, robot2):
         D1 = self.Formule.distance_ball(robot1) # Distance balle-robot1
