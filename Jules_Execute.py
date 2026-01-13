@@ -89,5 +89,3 @@ class action :
 
 with rsk.Client() as client:
     Action = action(client)
-    Action.Pass_vers_objectif(client.green1, client.green2,(-0.5,0.4),"droit")
-    #Action.Tire_vers_le_but(client.green1,client.green2,"droite")      

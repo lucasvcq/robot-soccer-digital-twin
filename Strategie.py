@@ -2,6 +2,7 @@ import rsk
 from REMI import remi
 from Jules_Execute import action
 from Jules import formule
+import time
 
 class Game:
     def __init__(self, client, color):
@@ -97,7 +98,7 @@ class Game:
             if self.nb_adv_actifs == 2:
                 print(">>> 1 vs 2 : Infériorité numérique")
                 N_robot = self.nos_actifs[0]
-                Remi.defense_passive(N_robot)
+                Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"back",time.time(),0.2)
 
             elif self.nb_adv_actifs == 1:
                 print(">>> 1 vs 1 : Match réduit")
@@ -108,11 +109,12 @@ class Game:
                 if A > N : 
                     Action.Tire_vers_le_but(N_robot,self.terrain)
                 else : 
-                    Remi.defense_passive(N_robot,self.terrain)
+                    Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"back",time.time(),0.2)
 
-            elif self.nb_adv_actifs == 2:
+            elif self.nb_adv_actifs == 0: 
                 print(">>> Aucun adversaire sur le terrain")
-                Action.Tire_vers_le_but(N_robot,self.terrain)
+                N_robot = self.nos_actifs[0] 
+                Action.Tire_vers_le_but(N_robot, self.terrain)
 
 def choisir_couleur():
     while True:
@@ -135,7 +137,6 @@ if __name__ == "__main__":
         Formule = formule(client)
 
         print("--- DÉBUT DU MATCH ---")
-        
         # C'est LA SEULE boucle while True du programme
         while True:
             # A chaque tour, on demande au cerveau de réfléchir et d'agir UNE fois
