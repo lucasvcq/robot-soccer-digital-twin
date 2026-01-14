@@ -194,3 +194,103 @@ class FieldUtils:
         proj_y = line_start[1] + t * ly
         
         return FieldUtils.dist(point, (proj_x, proj_y))
+    
+    @staticmethod
+    def is_in_penalty_area(point, goal_x):
+        """
+        Vérifie si un point est dans la zone interdite (surface de réparation)
+        La zone RÉELLE est de 0.30m × 0.90m DEVANT les cages (côté terrain)
+        La MARGE est une extension de sécurité pour éviter les violations
+        
+        IMPORTANT: La zone est DEVANT le but (vers le terrain), pas derrière !
+        
+        Args:
+            point: Tuple (x, y) à vérifier
+            goal_x: Position X du but (pour savoir de quel côté)
+            
+        Returns:
+            bool: True si le point est dans la zone interdite (incluant la marge)
+        """
+        from config import PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH, PENALTY_AREA_MARGIN
+        
+        # La zone TOTALE = zone réglementaire + marge de sécurité
+        total_depth = PENALTY_AREA_DEPTH + PENALTY_AREA_MARGIN
+        total_width = PENALTY_AREA_WIDTH + 2 * PENALTY_AREA_MARGIN
+        
+        # CORRECTION: La zone s'étend DEPUIS le but VERS le terrain
+        if goal_x < 0:
+            # But à GAUCHE (X négatif)
+            # Zone: du bord gauche (MIN_X) jusqu'à (MIN_X + depth)
+            # Un point est dans la zone si: MIN_X <= X <= MIN_X + depth
+            zone_start = FieldUtils.MIN_X
+            zone_end = FieldUtils.MIN_X + total_depth
+            in_x_range = zone_start <= point[0] <= zone_end
+        else:
+            # But à DROITE (X positif)
+            # Zone: de (MAX_X - depth) jusqu'au bord droit (MAX_X)
+            # Un point est dans la zone si: MAX_X - depth <= X <= MAX_X
+            zone_start = FieldUtils.MAX_X - total_depth
+            zone_end = FieldUtils.MAX_X
+            in_x_range = zone_start <= point[0] <= zone_end
+        
+        # Limites en Y (centrées sur 0)
+        y_half_width = total_width / 2.0
+        in_y_range = -y_half_width <= point[1] <= y_half_width
+        
+        return in_x_range and in_y_range
+    
+    @staticmethod
+    def get_safe_position_outside_penalty(point, goal_x):
+        """
+        Si un point est dans la zone interdite, retourne le point le plus proche à l'extérieur
+        AVEC UNE MARGE SUPPLÉMENTAIRE de sécurité
+        
+        Args:
+            point: Tuple (x, y) potentiellement dans la zone
+            goal_x: Position X du but
+            
+        Returns:
+            Tuple (x, y): Point sûr à l'extérieur de la zone
+        """
+        if not FieldUtils.is_in_penalty_area(point, goal_x):
+            return point  # Déjà à l'extérieur
+        
+        from config import PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH, PENALTY_AREA_MARGIN
+        
+        x, y = point
+        total_depth = PENALTY_AREA_DEPTH + PENALTY_AREA_MARGIN
+        total_width = PENALTY_AREA_WIDTH + 2 * PENALTY_AREA_MARGIN
+        
+        # MARGE SUPPLÉMENTAIRE pour sortir vraiment de la zone
+        EXTRA_SAFETY = 0.10  # 10cm de plus
+        
+        # Déterminer les limites de la zone
+        if goal_x < 0:
+            # But à gauche : pousser vers la droite (X positif)
+            x_boundary = FieldUtils.MIN_X + total_depth
+            safe_x = x_boundary + EXTRA_SAFETY
+        else:
+            # But à droite : pousser vers la gauche (X négatif)
+            x_boundary = FieldUtils.MAX_X - total_depth
+            safe_x = x_boundary - EXTRA_SAFETY
+        
+        y_half_width = total_width / 2.0
+        
+        # Stratégie en Y : sortir par le côté le plus proche
+        if abs(y) > y_half_width:
+            # Déjà hors de la zone en Y
+            safe_y = y
+        else:
+            # Pousser vers le bord le plus proche en Y
+            if abs(y) < 0.1:
+                # Très proche du centre : pousser vers le haut
+                safe_y = y_half_width + EXTRA_SAFETY
+            elif y > 0:
+                safe_y = y_half_width + EXTRA_SAFETY
+            else:
+                safe_y = -y_half_width - EXTRA_SAFETY
+        
+        # Clamp pour rester dans le terrain
+        safe_pos = FieldUtils.clamp((safe_x, safe_y), margin=0.05)
+        
+        return safe_pos

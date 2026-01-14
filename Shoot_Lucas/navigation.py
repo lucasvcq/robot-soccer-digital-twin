@@ -3,6 +3,7 @@ Système de navigation pour les robots
 Gère le déplacement vers la balle avec évitement intelligent
 """
 import time
+import math
 from field_utils import FieldUtils
 from around_planner import AroundPlanner
 import config
