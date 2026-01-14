@@ -1,14 +1,16 @@
 import rsk
-from REMI import remi
+import time
+import threading
+from test_remi import remi
 from Jules_Execute import action
 from Jules import formule
-import time
 
 class Game:
     def __init__(self, client, color):
         self.client = client
         self.color = color
         self.opponent_color = 'blue' if color == 'green' else 'green'
+        self.start_time = time.time()  # Initialisation du chrono
 
     def update_info(self):
         # --- GESTION DU CÔTÉ ET DES CIBLES ---
@@ -69,7 +71,7 @@ class Game:
         self.nb_nos_actifs = len(self.nos_actifs)
         self.nb_adv_actifs = len(self.adv_actifs)
 
-    def executer_strategie(self):
+    def executer_strategie(self, robot):
         # 1. On met à jour les données (le "cerveau" scanne le terrain)
         self.update_info()
 
@@ -77,7 +79,13 @@ class Game:
         if self.nb_nos_actifs == 2:
             if self.nb_adv_actifs == 2:
                 print(">>> 2 vs 2 : Match classique")
-                self.controle_robot(remi_obj,jules_obj, robot, robot_id, game, vitesse, err, marge, seuil_ball, role, start_time)
+                params = {
+                    "vitesse": 3.0,
+                    "err": 0.05,
+                    "seuil_ball": 0.15,
+                    "start_time": time.time()
+                    }
+                Remi.controle_robot(Action, robot, "1", game, params["vitesse"], params["err"], 0.3, params["seuil_ball"], "front", params["start_time"])
             elif self.nb_adv_actifs == 1:
                 print(">>> Supériorité numérique")
                 Action.supériorité_numérique(self.nos_actifs[0],self.nos_actifs[1],self.adv_penalises[0],self.terrain,self.target_def)
@@ -121,24 +129,37 @@ def choisir_couleur():
 
 if __name__ == "__main__":
     N_couleur = choisir_couleur()
+    
     with rsk.Client() as client:
-        game = Game(client,N_couleur) # On peut automatiser la couleur
+        game = Game(client, N_couleur)
         Remi = remi(client)
         Action = action(client)
         Formule = formule(client)
 
-        print("--- DÉBUT DU MATCH ---")
-        # C'est LA SEULE boucle while True du programme
-        while True:
-            # A chaque tour, on demande au cerveau de réfléchir et d'agir UNE fois
-            try:
-                game.executer_strategie()
-                # Petite pause pour ne pas surchauffer le processeur inutilement
-                # (optionnel selon la réactivité voulue)
-            except KeyboardInterrupt:
-                print("Arrêt du match demandé.")
-                break
+        print(f"--- DÉBUT DU MATCH ({N_couleur.upper()}) ---")
 
+        # Fonction que chaque thread va exécuter en boucle
+        def thread_loop(robot_obj):
+            print(f"Démarrage du thread pour {robot_obj}")
+            while True:
+                try:
+                    game.executer_strategie(robot_obj)
+                    time.sleep(0.05) # Fréquence de rafraîchissement
+                except Exception as e:
+                    print(f"Erreur sur {robot_obj}: {e}")
+                    break
 
+        # Création des threads pour nos deux robots
+        t1 = threading.Thread(target=thread_loop, args=(getattr(client, f"{N_couleur}1"),), daemon=True)
+        t2 = threading.Thread(target=thread_loop, args=(getattr(client, f"{N_couleur}2"),), daemon=True)
 
+        # Lancement
+        t1.start()
+        t2.start()
 
+        # On garde le programme principal en vie
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nArrêt du match demandé.")
