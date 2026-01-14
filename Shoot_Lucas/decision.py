@@ -79,20 +79,23 @@ class DecisionEngine:
         
         return action
     
-    def compute_pass_target(self, receiver_pos: Tuple[float, float]) -> Tuple[float, float]:
+    def compute_pass_target(self, receiver_pos: Tuple[float, float], 
+                            ball: Tuple[float, float] = None) -> Tuple[float, float]:
         """
         Calcule le point de passe optimal devant le receveur
+        Le receveur se décale latéralement pour contourner la défense
         
         Args:
             receiver_pos: Position (x, y) du receveur
+            ball: Position (x, y) de la balle (optionnel, pour décalage intelligent)
             
         Returns:
             Tuple (x, y): Point cible pour la passe
         """
-        # Offset en X dans le sens du jeu
+        # Offset en X dans le sens du jeu (profondeur)
         offset_x = config.PASS_DEPTH_OFFSET * self.sens_jeu
         
-        # Position cible brute
+        # Position cible en X
         target_x = receiver_pos[0] + offset_x
         
         # Clamp avec les limites réelles du terrain
@@ -103,7 +106,31 @@ class DecisionEngine:
             # Attaque vers la gauche
             target_x = max(target_x, FieldUtils.MIN_X + config.FIELD_MARGIN)
         
-        return (target_x, receiver_pos[1])
+        # NOUVEAU : Décalage latéral pour contourner la défense
+        # Le receveur se décale du côté opposé à la balle (évite le centre)
+        lateral_offset = config.PASS_LATERAL_OFFSET
+        
+        if ball is not None:
+            # Si la balle est en haut (y > 0), le receveur va en bas (y < 0)
+            # Si la balle est en bas (y < 0), le receveur va en haut (y > 0)
+            if ball[1] > 0.1:
+                # Balle en haut → receveur en bas
+                target_y = -lateral_offset
+            elif ball[1] < -0.1:
+                # Balle en bas → receveur en haut
+                target_y = lateral_offset
+            else:
+                # Balle au centre → receveur du côté où il est déjà
+                target_y = lateral_offset if receiver_pos[1] > 0 else -lateral_offset
+        else:
+            # Pas d'info sur la balle → garde la position Y actuelle
+            target_y = receiver_pos[1]
+        
+        # Clamp Y aussi
+        target_y = max(FieldUtils.MIN_Y + config.FIELD_MARGIN, 
+                      min(target_y, FieldUtils.MAX_Y - config.FIELD_MARGIN))
+        
+        return (target_x, target_y)
     
     def compute_support_position(self, attacker_pos: Tuple[float, float], 
                                   ball: Tuple[float, float]) -> Tuple[float, float]:

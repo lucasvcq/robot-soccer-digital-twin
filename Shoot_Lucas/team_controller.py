@@ -50,6 +50,9 @@ class TeamController:
         if not state.is_valid():
             return False
         
+        # NOUVEAU : Vérification d'urgence des zones interdites
+        self._check_penalty_area_violations(state)
+        
         # 2. Identification des rôles
         attacker_id = state.closest_robot
         receiver_id = 2 if attacker_id == 1 else 1
@@ -75,6 +78,33 @@ class TeamController:
         
         return kick_happened
     
+    def _check_penalty_area_violations(self, state: GameState):
+        """
+        Vérifie si un robot est dans la zone interdite et le fait sortir immédiatement
+        
+        Args:
+            state: État actuel du jeu
+        """
+        # Vérifier robot 1
+        if FieldUtils.is_in_penalty_area(state.robot1_pos, self.goal[0]):
+            safe_pos = FieldUtils.get_safe_position_outside_penalty(state.robot1_pos, self.goal[0])
+            angle = FieldUtils.angle(state.robot1_pos, safe_pos)
+            print(f"\n⚠️  [Green1] SORTIE D'URGENCE de la zone interdite!")
+            print(f"   Position actuelle: ({state.robot1_pos[0]:.3f}, {state.robot1_pos[1]:.3f})")
+            print(f"   Position sûre: ({safe_pos[0]:.3f}, {safe_pos[1]:.3f})")
+            self.client.green1.goto((safe_pos[0], safe_pos[1], angle), wait=False)
+            self.agent1.reset_navigation()
+        
+        # Vérifier robot 2
+        if FieldUtils.is_in_penalty_area(state.robot2_pos, self.goal[0]):
+            safe_pos = FieldUtils.get_safe_position_outside_penalty(state.robot2_pos, self.goal[0])
+            angle = FieldUtils.angle(state.robot2_pos, safe_pos)
+            print(f"\n⚠️  [Green2] SORTIE D'URGENCE de la zone interdite!")
+            print(f"   Position actuelle: ({state.robot2_pos[0]:.3f}, {state.robot2_pos[1]:.3f})")
+            print(f"   Position sûre: ({safe_pos[0]:.3f}, {safe_pos[1]:.3f})")
+            self.client.green2.goto((safe_pos[0], safe_pos[1], angle), wait=False)
+            self.agent2.reset_navigation()
+    
     def _execute_pass(self, state: GameState, attacker: RobotAgent, 
                       receiver: RobotAgent) -> bool:
         """
@@ -88,8 +118,11 @@ class TeamController:
         Returns:
             bool: True si un kick a été effectué
         """
-        # Calcul du point de passe
-        pass_target = self.engine.compute_pass_target(receiver.robot.position)
+        # Calcul du point de passe (avec info de la balle pour décalage)
+        pass_target = self.engine.compute_pass_target(
+            receiver.robot.position, 
+            state.ball  # AJOUT : Position de la balle pour décalage intelligent
+        )
         
         # Configuration de l'attaquant
         attacker.set_target(pass_target)
