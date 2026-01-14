@@ -310,4 +310,5 @@ class remi:
             robot.goto((xb, yb, theta_shoot), wait=False)
             robot.kick()
 
-        
+
+    
