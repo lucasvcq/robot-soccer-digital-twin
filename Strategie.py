@@ -77,7 +77,7 @@ class Game:
         if self.nb_nos_actifs == 2:
             if self.nb_adv_actifs == 2:
                 print(">>> 2 vs 2 : Match classique")
-
+                self.controle_robot(remi_obj,jules_obj, robot, robot_id, game, vitesse, err, marge, seuil_ball, role, start_time)
             elif self.nb_adv_actifs == 1:
                 print(">>> Supériorité numérique")
                 Action.supériorité_numérique(self.nos_actifs[0],self.nos_actifs[1],self.adv_penalises[0],self.terrain,self.target_def)
