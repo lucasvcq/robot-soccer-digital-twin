@@ -11,14 +11,7 @@ class Game:
         self.opponent_color = 'blue' if color == 'green' else 'green'
 
     def update_info(self):
-        """
-        Met à jour toutes les informations critiques du match :
-        - Le côté du terrain (au cas où ça change à la mi-temps)
-        - Les cibles d'attaque et de défense
-        - Le nombre de robots pénalisés
-        """
-        # --- A. GESTION DU CÔTÉ ET DES CIBLES ---
-        # On récupère le côté (True = Droite/Positive, False = Gauche/Négative)
+        # --- GESTION DU CÔTÉ ET DES CIBLES ---
         try:
             is_positive = self.client.referee["teams"][self.color]["x_positive"]
         except KeyError:
@@ -39,8 +32,7 @@ class Game:
             self.sens_but = 1
             self.terrain = "gauche"
 
-        # --- B. GESTION DES PÉNALITÉS ---
-        # --- INITIALISATION DES LISTES ---
+        # --- GESTION DES PÉNALITÉS ---
         self.nos_actifs = []
         self.nos_penalises = []
         
@@ -52,7 +44,6 @@ class Game:
             # Vérif pénalité
             is_penalized = self.client.referee["teams"][self.color]["robots"][str(i)]["penalized"]
             
-            # Récupération de l'objet (ex: client.green1)
             nom_robot = f"{self.color}{i}"
             robot_obj = getattr(self.client, nom_robot)
 
@@ -66,7 +57,6 @@ class Game:
             # Vérif pénalité (Attention : on regarde dans couleur_adverse)
             is_penalized = self.client.referee["teams"][self.opponent_color]["robots"][str(i)]["penalized"]
             
-            # Récupération de l'objet (ex: client.blue1)
             nom_robot = f"{self.opponent_color}{i}"
             robot_obj = getattr(self.client, nom_robot)
 
@@ -90,6 +80,7 @@ class Game:
 
             elif self.nb_adv_actifs == 1:
                 print(">>> Supériorité numérique")
+                Action.supériorité_numérique(self.nos_actifs[0],self.nos_actifs[1],self.adv_penalises[0],self.terrain,self.target_def)
 
             elif self.nb_adv_actifs == 0:
                 print(">>> Aucun adversaire sur le terrain")
@@ -98,7 +89,7 @@ class Game:
             if self.nb_adv_actifs == 2:
                 print(">>> 1 vs 2 : Infériorité numérique")
                 N_robot = self.nos_actifs[0]
-                Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"back",time.time(),0.2)
+                Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"front",time.time(),0.2)
 
             elif self.nb_adv_actifs == 1:
                 print(">>> 1 vs 1 : Match réduit")
@@ -109,7 +100,7 @@ class Game:
                 if A > N : 
                     Action.Tire_vers_le_but(N_robot,self.terrain)
                 else : 
-                    Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"back",time.time(),0.2)
+                    Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"front",time.time(),0.2)
 
             elif self.nb_adv_actifs == 0: 
                 print(">>> Aucun adversaire sur le terrain")
