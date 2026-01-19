@@ -81,17 +81,44 @@ class FieldUtils:
     def clamp(point, margin=0.01):
         """
         Limite un point aux bornes du terrain avec une marge
+        ⚠️  ATTENTION: Ne vérifie PAS la zone interdite !
+        Utilisez safe_clamp() pour éviter aussi la zone interdite.
         
         Args:
             point: Tuple (x, y) à limiter
             margin: Marge de sécurité en mètres (défaut: 0.01)
             
         Returns:
-            Tuple (x, y): Point limité
+            Tuple (x, y): Point limité aux bornes du terrain
         """
         x = min(max(point[0], FieldUtils.MIN_X + margin), FieldUtils.MAX_X - margin)
         y = min(max(point[1], FieldUtils.MIN_Y + margin), FieldUtils.MAX_Y - margin)
         return (x, y)
+    
+    @staticmethod
+    def safe_clamp(point, goal_x, margin=0.01):
+        """
+        Limite un point aux bornes du terrain ET évite la zone interdite
+        
+        Args:
+            point: Tuple (x, y) à limiter
+            goal_x: Position X du but (pour connaître la zone interdite)
+            margin: Marge de sécurité en mètres (défaut: 0.01)
+            
+        Returns:
+            Tuple (x, y): Point sûr (dans le terrain ET hors zone interdite)
+        """
+        # 1. D'abord clamp aux limites du terrain
+        clamped = FieldUtils.clamp(point, margin)
+        
+        # 2. Ensuite vérifier la zone interdite
+        if FieldUtils.is_in_penalty_area(clamped, goal_x):
+            # Le point est dans la zone interdite, le corriger
+            clamped = FieldUtils.get_safe_position_outside_penalty(clamped, goal_x)
+            # Re-clamp au cas où la correction sortirait du terrain
+            clamped = FieldUtils.clamp(clamped, margin)
+        
+        return clamped
 
     @staticmethod
     def behind_point(ball, goal, distance):

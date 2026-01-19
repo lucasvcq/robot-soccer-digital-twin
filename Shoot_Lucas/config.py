@@ -83,12 +83,13 @@ BETWEEN_ANGLE_THRESH_DEG = 25.0
 # ============================================================================
 
 # Distance devant le receveur pour la passe (m)
-# 0.40 = la balle arrive 40cm devant le robot
-PASS_DEPTH_OFFSET = 0.40
+# AUGMENTÉE pour que le receveur soit plus proche du but
+PASS_DEPTH_OFFSET = 0.60  # 60cm devant (au lieu de 40cm)
 
 # Décalage latéral du receveur pour éviter le centre (m)
 # Le receveur ira à Y = ±PASS_LATERAL_OFFSET selon la position de la balle
-PASS_LATERAL_OFFSET = 0.35
+# AUGMENTÉE pour qu'il soit vraiment sur le côté
+PASS_LATERAL_OFFSET = 0.50  # 50cm du centre (au lieu de 35cm)
 
 # Si l'attaquant est plus loin que cette distance, il envisage la passe (m)
 DIST_SHOOT_LIMIT = 1.0
