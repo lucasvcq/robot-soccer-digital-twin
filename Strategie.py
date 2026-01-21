@@ -86,6 +86,7 @@ class Game:
                     "start_time": time.time()
                     }
                 Remi.controle_robot(Action, robot, "1", game, params["vitesse"], params["err"], 0.3, params["seuil_ball"], "front", params["start_time"])
+            
             elif self.nb_adv_actifs == 1:
                 print(">>> Supériorité numérique")
                 Action.supériorité_numérique(self.nos_actifs[0],self.nos_actifs[1],self.adv_penalises[0],self.terrain,self.target_def)
@@ -140,15 +141,14 @@ if __name__ == "__main__":
         print(f"--- DÉBUT DU MATCH ({N_couleur.upper()}) ---")
 
         # Fonction que chaque thread va exécuter en boucle
-        def thread_loop(robot_obj):
-            print(f"Démarrage du thread pour {robot_obj}")
-            while True:
-                try:
-                    game.executer_strategie(robot_obj)
-                    time.sleep(0.05) # Fréquence de rafraîchissement
-                except Exception as e:
-                    print(f"Erreur sur {robot_obj}: {e}")
-                    break
+
+        while True:
+            try:
+                game.executer_strategie(client.green1)
+                time.sleep(0.05) # Fréquence de rafraîchissement
+            except Exception as e:
+                print(f"Erreur sur {client.green1}: {e}")
+                break
 
 
 

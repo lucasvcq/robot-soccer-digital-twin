@@ -67,8 +67,8 @@ class formule:
 # On attend dans () le robot, l'angle du vecteur balle-objectif pour ça utiliser la fonction juste au dessus, 
 # et l'angle entre l'horizontal et la droite reliant l'objectif au centre du terrain 
     def Placement_vers_objectif(self, robot, Angle_robot, Objectif):
-        rayon = 0.2
-        steps = 300
+        rayon = 0.3
+        steps = 150
 
         Angle_robot_norm = self.normalize_angle(Angle_robot)
         Objectif_norm = self.normalize_angle(Objectif)
@@ -85,9 +85,11 @@ class formule:
 
             robot.goto((x,y,Objectif-pi),wait=False)
 
-            d = self.distance_objectif_objectif(robot.position,(x,y))
-            while d < 0.01 :
-                time.sleep(0.01)
+
+        B = self.client.ball
+        x = B[0] + rayon * math.cos(Objectif_norm)
+        y = B[1] + rayon * math.sin(Objectif_norm)
+        robot.goto((x,y,Objectif-pi),wait=True)
 
 
     def normalize_angle(self, angle):
@@ -204,8 +206,8 @@ class formule:
         O = Formule.Angle_vecteur_objectif_objectif(PO,self.client.ball) - pi
 
         Formule.Placement_vers_objectif(robot_passeur,A,O)
-        x,y =Formule.arret_balle(robot_passeur)
-        robot_passeur.goto((x,y,O-pi))
+        x,y = Formule.arret_balle(robot_passeur)
+        robot_passeur.goto((x,y,O-pi),)
         robot_passeur.kick(Formule.calc_kick_strength(DB,0.99))
 
     def deplacement_objectif(self, robot, terrain):
