@@ -20,6 +20,10 @@ ANGLE_TOL = math.radians(8)
 # Période de la boucle principale (secondes)
 LOOP_DT = 0.05
 
+# Distance minimale autorisée par rapport au but adverse (m)
+# Le robot ne peut pas s'approcher plus près du but que cette distance
+MIN_DISTANCE_TO_GOAL = 0.45  # 45cm minimum
+
 # ============================================================================
 # PARAMÈTRES DE CHANGEMENT D'ACTEUR
 # ============================================================================
@@ -79,8 +83,13 @@ BETWEEN_ANGLE_THRESH_DEG = 25.0
 # ============================================================================
 
 # Distance devant le receveur pour la passe (m)
-# 0.40 = la balle arrive 40cm devant le robot
-PASS_DEPTH_OFFSET = 0.40
+# AUGMENTÉE pour que le receveur soit plus proche du but
+PASS_DEPTH_OFFSET = 0.60  # 60cm devant (au lieu de 40cm)
+
+# Décalage latéral du receveur pour éviter le centre (m)
+# Le receveur ira à Y = ±PASS_LATERAL_OFFSET selon la position de la balle
+# AUGMENTÉE pour qu'il soit vraiment sur le côté
+PASS_LATERAL_OFFSET = 0.50  # 50cm du centre (au lieu de 35cm)
 
 # Si l'attaquant est plus loin que cette distance, il envisage la passe (m)
 DIST_SHOOT_LIMIT = 1.0
@@ -120,6 +129,18 @@ GOAL_X = -1.83 / 2
 GOAL_POSITION = (GOAL_X, 0.0)
 
 # ============================================================================
+# ZONES INTERDITES (Surface de réparation)
+# ============================================================================
+
+# Dimensions de la zone interdite devant chaque but
+PENALTY_AREA_DEPTH = 0.30   # Profondeur de la zone (30cm)
+PENALTY_AREA_WIDTH = 0.90   # Largeur de la zone (90cm)
+
+# Marge de sécurité pour éviter d'entrer dans la zone
+# AUGMENTÉE pour plus de prudence
+PENALTY_AREA_MARGIN = 0.15  # 10cm de marge (au lieu de 5cm)
+
+# ============================================================================
 # PARAMÈTRES DE DEBUG
 # ============================================================================
 
@@ -127,7 +148,7 @@ GOAL_POSITION = (GOAL_X, 0.0)
 DEBUG_VERBOSE = False
 
 # Afficher les décisions stratégiques
-DEBUG_STRATEGY = True
+DEBUG_STRATEGY = False
 
 # Afficher les informations de navigation
 DEBUG_NAVIGATION = False

@@ -13,6 +13,7 @@ class AroundPlanner:
     def compute_around_waypoint(ball, goal, side=1):
         """
         Calcule un waypoint latéral pour contourner la balle
+        GARANTIT que le waypoint est hors de la zone interdite
         
         Args:
             ball: Position (x, y) de la balle
@@ -20,7 +21,7 @@ class AroundPlanner:
             side: +1 pour droite (vu ball->goal), -1 pour gauche
             
         Returns:
-            Tuple (x, y): Waypoint de contournement
+            Tuple (x, y): Waypoint de contournement (garanti hors zone interdite)
         """
         # Direction ball -> goal (vecteur unitaire)
         u_bg = FieldUtils.unit_vector(ball, goal)
@@ -50,8 +51,8 @@ class AroundPlanner:
                 base[1] + perp_signed[1] * lateral + u_bg[1] * config.AROUND_FORWARD_OFFSET
             )
             
-            # Clamp aux limites du terrain
-            candidate = FieldUtils.clamp(candidate)
+            # CORRECTION CRITIQUE: Utiliser safe_clamp au lieu de clamp
+            candidate = FieldUtils.safe_clamp(candidate, goal[0])
             
             # Vérification de la clearance
             clearance = FieldUtils.dist(candidate, ball)
@@ -74,7 +75,8 @@ class AroundPlanner:
                 base[0] + perp_signed[0] * lateral + u_bg[0] * config.AROUND_FORWARD_OFFSET,
                 base[1] + perp_signed[1] * lateral + u_bg[1] * config.AROUND_FORWARD_OFFSET
             )
-            wp = FieldUtils.clamp(wp)
+            # CORRECTION CRITIQUE: Utiliser safe_clamp
+            wp = FieldUtils.safe_clamp(wp, goal[0])
             
             if config.DEBUG_NAVIGATION:
                 print(f"[AroundPlanner] WARNING: Clearance insuffisante. "

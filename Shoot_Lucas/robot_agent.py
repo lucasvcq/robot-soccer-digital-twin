@@ -1,150 +1,196 @@
 """
-Moteur de décision tactique
-Détermine l'action à prendre (tir, passe, défense) selon la situation
+Agent de contrôle pour un robot individuel
+Gère la navigation, l'orientation et le tir
 """
-from enum import Enum
-from typing import Tuple
-import config
+import rsk
 from field_utils import FieldUtils
-from game_state import GameState
+import config
 
-class Action(Enum):
-    """Types d'actions possibles"""
-    SHOOT = "shoot"      # Tir au but
-    PASS = "pass"        # Passe au coéquipier
-    DEFEND = "defend"    # Position défensive (non implémenté)
-    IDLE = "idle"        # Attente
+# Import différé de navigation pour éviter les imports circulaires
+import navigation
 
 class RobotAgent:
     """
-    Moteur de décision pour la stratégie d'équipe
-    Analyse la situation et décide de l'action optimale
+    Agent intelligent pour contrôler un robot
+    Gère : navigation, orientation, tir
     """
     
-    def __init__(self, goal_pos: Tuple[float, float]):
+    def __init__(self, robot, goal, name):
         """
         Args:
-            goal_pos: Position (x, y) du but adverse
+            robot: Instance du robot RSK (green1 ou green2)
+            goal: Position (x, y) du but par défaut
+            name: Nom du robot pour le debug
         """
-        self.goal = goal_pos
+        self.robot = robot
+        self.goal = goal
+        self.name = name
         
-        # Sens du jeu : +1 si on attaque vers la droite, -1 vers la gauche
-        self.sens_jeu = 1 if goal_pos[0] > 0 else -1
+        # État de navigation - création différée
+        from navigation import AvoidanceState
+        self.nav_state = AvoidanceState()
+        
+        # Paramètres de tir
+        self.kick_power = config.POWER_SHOOT  # Puissance par défaut
     
-    def decide(self, state: GameState, attacker_id: int) -> Action:
+    def set_target(self, new_target):
         """
-        Décide de l'action à prendre
-        
-        Critères de décision :
-        1. Distance au but de l'attaquant
-        2. Position du coéquipier (est-il mieux placé ?)
-        3. Angle de tir disponible
+        Change la cible du robot (but ou point de passe)
         
         Args:
-            state: État actuel du jeu (GameState)
-            attacker_id: ID du robot attaquant (1 ou 2)
-            
-        Returns:
-            Action: Action à exécuter (SHOOT ou PASS)
+            new_target: Tuple (x, y) de la nouvelle cible
         """
-        # Identification des robots
-        receiver_id = 2 if attacker_id == 1 else 1
-        
-        # Positions
-        att_pos = state.get_robot_pos(attacker_id)
-        rec_pos = state.get_robot_pos(receiver_id)
-        
-        # Distances au but
-        dist_att_goal = state.get_dist_to_goal(attacker_id)
-        dist_rec_goal = state.get_dist_to_goal(receiver_id)
-        
-        # Critère 1 : Le coéquipier est-il mieux placé ?
-        teammate_ahead = dist_rec_goal < (dist_att_goal - config.TEAMMATE_AHEAD_MARGIN)
-        
-        # Critère 2 : L'attaquant est-il trop loin du but ?
-        far_from_goal = dist_att_goal > config.DIST_SHOOT_LIMIT
-        
-        # Décision finale
-        if far_from_goal and teammate_ahead:
-            action = Action.PASS
-        else:
-            action = Action.SHOOT
-        
-        # Debug
-        if config.DEBUG_STRATEGY:
-            print(f"[Decision] Attaquant: R{attacker_id} | "
-                  f"Dist_but: {dist_att_goal:.2f}m | "
-                  f"Copain_devant: {teammate_ahead} | "
-                  f"Action: {action.value}", end='\r')
-        
-        return action
+        self.goal = new_target
     
-    def compute_pass_target(self, receiver_pos: Tuple[float, float]) -> Tuple[float, float]:
+    def set_kick_power(self, power):
         """
-        Calcule le point de passe optimal devant le receveur
+        Configure la puissance du tir
         
         Args:
-            receiver_pos: Position (x, y) du receveur
-            
-        Returns:
-            Tuple (x, y): Point cible pour la passe
+            power: Float entre 0.0 et 1.0
         """
-        # Offset en X dans le sens du jeu
-        offset_x = config.PASS_DEPTH_OFFSET * self.sens_jeu
-        
-        # Position cible brute
-        target_x = receiver_pos[0] + offset_x
-        
-        # Clamp avec les limites réelles du terrain
-        if self.sens_jeu > 0:
-            # Attaque vers la droite
-            target_x = min(target_x, FieldUtils.MAX_X - config.FIELD_MARGIN)
-        else:
-            # Attaque vers la gauche
-            target_x = max(target_x, FieldUtils.MIN_X + config.FIELD_MARGIN)
-        
-        return (target_x, receiver_pos[1])
+        self.kick_power = max(0.0, min(1.0, power))
     
-    def compute_support_position(self, attacker_pos: Tuple[float, float], 
-                                  ball: Tuple[float, float]) -> Tuple[float, float]:
+    def update_state(self, ball):
         """
-        Calcule une position de soutien tactique pour le receveur
-        quand il n'est pas en train de recevoir une passe
+        Met à jour l'état du robot et exécute les actions
+        
+        Séquence :
+        1. Navigation vers la balle
+        2. Orientation vers la cible
+        3. Tir si conditions réunies
         
         Args:
-            attacker_pos: Position (x, y) de l'attaquant
             ball: Position (x, y) de la balle
             
         Returns:
-            Tuple (x, y): Position de soutien
+            bool: True si un tir a été effectué, False sinon
         """
-        # Position en retrait par rapport à l'attaquant
-        support_x = attacker_pos[0] - config.SUPPORT_OFFSET * self.sens_jeu
+        rpos = self.robot.position
+        rtheta = self.robot.orientation
         
-        # Légèrement décalé latéralement pour ne pas gêner
-        support_y = attacker_pos[1] + config.SUPPORT_LATERAL_OFFSET
+        # 1. Navigation : aller derrière la balle
+        from navigation import aller_derriere_balle
+        is_in_zone = aller_derriere_balle(
+            self.robot, ball, self.goal, self.nav_state
+        )
         
-        # Clamp
-        support_pos = FieldUtils.clamp((support_x, support_y), config.FIELD_MARGIN)
+        # Si on n'est pas encore en position, on continue la navigation
+        if not is_in_zone:
+            return False
         
-        return support_pos
+        # 2. Orientation : tourner vers la cible
+        if self._handle_orientation(rpos, rtheta):
+            return False  # Encore en train de tourner
+        
+        # 3. Tir : exécuter si toutes les conditions sont réunies
+        return self._handle_kick(ball, rpos, rtheta)
     
-    def is_shot_clear(self, shooter_pos: Tuple[float, float], 
-                      ball: Tuple[float, float],
-                      obstacle_pos: Tuple[float, float]) -> bool:
+    def _handle_orientation(self, rpos, rtheta):
         """
-        Vérifie si le tir est dégagé (pas d'obstacle sur la trajectoire)
+        Gère l'orientation du robot vers la cible
         
         Args:
-            shooter_pos: Position du tireur
-            ball: Position de la balle
-            obstacle_pos: Position de l'obstacle potentiel
+            rpos: Position (x, y) du robot
+            rtheta: Orientation actuelle en radians
             
         Returns:
-            bool: True si le tir est dégagé
+            bool: True si le robot est en train de tourner, False si bien orienté
         """
-        # Distance de l'obstacle à la ligne balle-but
-        dist = FieldUtils.point_to_line_distance(obstacle_pos, ball, self.goal)
+        # Angle désiré vers la cible
+        desired_theta = FieldUtils.angle(rpos, self.goal)
         
-        # Considère le tir dégagé si l'obstacle est à plus de 30cm de la ligne
-        return dist > 0.30
+        # Erreur d'angle (normalisée)
+        ang_err = FieldUtils.wrap(desired_theta - rtheta)
+        
+        # Si l'erreur dépasse la tolérance, on tourne sur place
+        if abs(ang_err) > config.ANGLE_TOL:
+            self.robot.goto((rpos[0], rpos[1], desired_theta), wait=True)
+            return True  # Occupé à tourner
+        
+        return False  # Bien orienté
+    
+    def _handle_kick(self, ball, rpos, rtheta):
+        """
+        Gère l'approche finale et le tir
+        RESPECTE LA ZONE INTERDITE
+        
+        Args:
+            ball: Position (x, y) de la balle
+            rpos: Position (x, y) du robot
+            rtheta: Orientation du robot en radians
+            
+        Returns:
+            bool: True si un tir a été effectué, False sinon
+        """
+        # NOUVEAU : Vérifier que le robot n'est pas dans la zone interdite
+        if FieldUtils.is_in_penalty_area(rpos, self.goal[0]):
+            # On est dans la zone interdite, sortir immédiatement
+            safe_pos = FieldUtils.get_safe_position_outside_penalty(rpos, self.goal[0])
+            angle_away = FieldUtils.angle(rpos, safe_pos)
+            self.robot.goto((safe_pos[0], safe_pos[1], angle_away), wait=False)
+            if config.DEBUG_VERBOSE:
+                print(f"[{self.name}] ⚠️  Sortie de la zone interdite")
+            return False
+        
+        # Distances et angles
+        d_to_ball = FieldUtils.dist(rpos, ball)
+        desired_theta = FieldUtils.angle(rpos, self.goal)
+        ang_err = FieldUtils.wrap(desired_theta - rtheta)
+        
+        # Phase 1 : Approche finale si trop loin
+        if d_to_ball > config.CAPTURE_DISTANCE:
+            # On avance doucement vers la balle en gardant l'angle vers le but
+            u_rg = FieldUtils.unit_vector(rpos, self.goal)
+            target_pos = (
+                ball[0] - u_rg[0] * 0.02,  # 2cm avant la balle
+                ball[1] - u_rg[1] * 0.02,
+                desired_theta
+            )
+            
+            # NOUVEAU : Vérifier que la position d'approche n'est pas dans la zone interdite
+            if FieldUtils.is_in_penalty_area(target_pos[:2], self.goal[0]):
+                # Trop proche de la zone, ne pas avancer
+                if config.DEBUG_VERBOSE:
+                    print(f"[{self.name}] Position d'approche trop proche de la zone interdite")
+                return False
+            
+            self.robot.goto(target_pos, wait=True)
+            return False
+        
+        # Phase 2 : Tir si toutes les conditions sont réunies
+        if d_to_ball <= config.CAPTURE_DISTANCE and abs(ang_err) <= config.ANGLE_TOL:
+            try:
+                if config.DEBUG_VERBOSE:
+                    print(f"\n[{self.name}] 🚀 KICK (Power={self.kick_power:.1f}) !")
+                
+                # Exécution du tir
+                self.robot.kick(power=self.kick_power)
+                
+                # Reset de l'état de navigation après le tir
+                self.nav_state.reset()
+                
+                return True  # Tir effectué
+                
+            except rsk.ClientError as e:
+                print(f"\n[{self.name}] ❌ Erreur kick: {e}")
+                return False
+        
+        return False
+    
+    def goto_position(self, target_pos, target_theta=None):
+        """
+        Envoie le robot à une position donnée (utilisé pour le receveur)
+        
+        Args:
+            target_pos: Tuple (x, y) de la position cible
+            target_theta: Angle cible (optionnel, sinon conserve l'actuel)
+        """
+        if target_theta is None:
+            target_theta = self.robot.orientation
+        
+        self.robot.goto((target_pos[0], target_pos[1], target_theta), wait=False)
+    
+    def reset_navigation(self):
+        """Réinitialise l'état de navigation"""
+        self.nav_state.reset()

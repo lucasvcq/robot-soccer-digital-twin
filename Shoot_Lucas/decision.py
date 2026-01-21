@@ -79,44 +79,91 @@ class DecisionEngine:
         
         return action
     
-    def compute_pass_target(self, receiver_pos: Tuple[float, float]) -> Tuple[float, float]:
+    def compute_pass_target(self, receiver_pos: Tuple[float, float], 
+                            ball: Tuple[float, float] = None) -> Tuple[float, float]:
         """
         Calcule le point de passe optimal devant le receveur
+        Le receveur se positionne EN ATTAQUE (proche du but, sur les côtés)
+        GARANTIT que la cible est hors de la zone interdite
         
         Args:
             receiver_pos: Position (x, y) du receveur
+            ball: Position (x, y) de la balle (optionnel, pour décalage intelligent)
             
         Returns:
-            Tuple (x, y): Point cible pour la passe
+            Tuple (x, y): Point cible pour la passe (garanti hors zone interdite)
         """
-        # Offset en X dans le sens du jeu
-        offset_x = config.PASS_DEPTH_OFFSET * self.sens_jeu
+        # ================================================================
+        # STRATÉGIE : Le receveur va le plus proche possible du but
+        # tout en restant hors de la zone interdite
+        # ================================================================
         
-        # Position cible brute
-        target_x = receiver_pos[0] + offset_x
+        # 1. Position X : Le plus proche du but possible
+        # On part du but et on recule juste assez pour être hors zone
+        from config import PENALTY_AREA_DEPTH, PENALTY_AREA_MARGIN
         
-        # Clamp avec les limites réelles du terrain
+        # Distance minimale sûre du but (zone interdite + marge + offset de passe)
+        safe_distance_from_goal = PENALTY_AREA_DEPTH + PENALTY_AREA_MARGIN + 0.15
+        
+        # Position X cible : juste après la zone interdite
         if self.sens_jeu > 0:
-            # Attaque vers la droite
-            target_x = min(target_x, FieldUtils.MAX_X - config.FIELD_MARGIN)
+            # Attaque vers la droite : on est le plus à droite possible
+            target_x = FieldUtils.MAX_X - safe_distance_from_goal
         else:
-            # Attaque vers la gauche
-            target_x = max(target_x, FieldUtils.MIN_X + config.FIELD_MARGIN)
+            # Attaque vers la gauche : on est le plus à gauche possible
+            target_x = FieldUtils.MIN_X + safe_distance_from_goal
         
-        return (target_x, receiver_pos[1])
+        # 2. Position Y : Sur les CÔTÉS (éviter le centre)
+        # On choisit le côté opposé à la balle pour créer l'ouverture
+        
+        if ball is not None:
+            # Stratégie : côté opposé à la balle
+            if ball[1] > 0.15:
+                # Balle en haut → receveur en bas
+                target_y = -config.PASS_LATERAL_OFFSET
+            elif ball[1] < -0.15:
+                # Balle en bas → receveur en haut  
+                target_y = config.PASS_LATERAL_OFFSET
+            else:
+                # Balle au centre : on garde le côté où est déjà le receveur
+                # OU on choisit le côté le plus large
+                if abs(receiver_pos[1]) < 0.1:
+                    # Receveur au centre : on choisit un côté (par exemple haut)
+                    target_y = config.PASS_LATERAL_OFFSET
+                else:
+                    # Receveur déjà sur un côté : on reste de ce côté
+                    target_y = config.PASS_LATERAL_OFFSET if receiver_pos[1] > 0 else -config.PASS_LATERAL_OFFSET
+        else:
+            # Pas d'info sur la balle : côté actuel du receveur, mais amplifié
+            if abs(receiver_pos[1]) < 0.1:
+                target_y = config.PASS_LATERAL_OFFSET  # Défaut : haut
+            else:
+                target_y = config.PASS_LATERAL_OFFSET if receiver_pos[1] > 0 else -config.PASS_LATERAL_OFFSET
+        
+        # 3. Sécurisation finale : safe_clamp pour vérifier terrain + zone interdite
+        pass_target = FieldUtils.safe_clamp((target_x, target_y), self.goal[0], margin=0.05)
+        
+        # 4. Debug (optionnel)
+        if config.DEBUG_STRATEGY:
+            dist_to_goal = FieldUtils.dist(pass_target, self.goal)
+            print(f"[Decision] Passe → ({pass_target[0]:+.2f}, {pass_target[1]:+.2f}) "
+                  f"Dist_but: {dist_to_goal:.2f}m", end='\r')
+        
+        return pass_target
     
     def compute_support_position(self, attacker_pos: Tuple[float, float], 
                                   ball: Tuple[float, float]) -> Tuple[float, float]:
         """
         Calcule une position de soutien tactique pour le receveur
         quand il n'est pas en train de recevoir une passe
+        GARANTIT que la position est hors de la zone interdite
         
         Args:
             attacker_pos: Position (x, y) de l'attaquant
             ball: Position (x, y) de la balle
             
         Returns:
-            Tuple (x, y): Position de soutien
+            Tuple (x, y): Position de soutien (garanti hors zone interdite)
         """
         # Position en retrait par rapport à l'attaquant
         support_x = attacker_pos[0] - config.SUPPORT_OFFSET * self.sens_jeu
@@ -124,8 +171,8 @@ class DecisionEngine:
         # Légèrement décalé latéralement pour ne pas gêner
         support_y = attacker_pos[1] + config.SUPPORT_LATERAL_OFFSET
         
-        # Clamp
-        support_pos = FieldUtils.clamp((support_x, support_y), config.FIELD_MARGIN)
+        # CORRECTION CRITIQUE: Utiliser safe_clamp
+        support_pos = FieldUtils.safe_clamp((support_x, support_y), self.goal[0], config.FIELD_MARGIN)
         
         return support_pos
     
