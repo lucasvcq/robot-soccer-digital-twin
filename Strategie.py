@@ -84,6 +84,7 @@ class Game:
 
             elif self.nb_adv_actifs == 0:
                 print(">>> Aucun adversaire sur le terrain")
+                Action.Aucun_adversaire(self.nos_actifs[0],self.nos_actifs[1],self.terrain)
                 
         elif self.nb_nos_actifs == 1:
             if self.nb_adv_actifs == 2:
@@ -138,7 +139,6 @@ if __name__ == "__main__":
             except KeyboardInterrupt:
                 print("Arrêt du match demandé.")
                 break
-
 
 
 

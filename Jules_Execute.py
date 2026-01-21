@@ -1,4 +1,5 @@
 import rsk 
+import math
 from Jules import formule
 from REMI import remi
 from math import sin, cos, tan, sqrt, atan2, pi
@@ -12,7 +13,7 @@ class action :
         self.Formule = formule(client)    
 
     def Tire_vers_le_but(self,robot,terrain):     
-            self.Formule.Spot_shoot(robot,terrain)
+        self.Formule.Spot_shoot(robot,terrain)
 
 
     def Pass_coéquipier(self, robot1, robot2):
@@ -135,6 +136,16 @@ class action :
             else: 
                 self.Pass_vers_objectif(Notre_robot1, Notre_robot2, (-0.4,0.4), terrain)
 
+    def Aucun_adversaire(self, N_robot1, N_robot2,terrain):
+        d1 = self.Formule.distance_ball(N_robot1)
+        d2 = self.Formule.distance_ball(N_robot2)
+        if d1 < d2 :
+            self.Tire_vers_le_but(N_robot1,terrain)
+        else : 
+            self.Tire_vers_le_but(N_robot2,terrain)
+
+
 with rsk.Client() as client:
     Action = action(client)
     Remi = remi(client)
+    Action.Tire_vers_le_but(client.green1,"droit")
