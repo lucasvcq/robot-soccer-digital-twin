@@ -138,7 +138,7 @@ PENALTY_AREA_WIDTH = 0.90   # Largeur de la zone (90cm)
 
 # Marge de sécurité pour éviter d'entrer dans la zone
 # AUGMENTÉE pour plus de prudence
-PENALTY_AREA_MARGIN = 0.10  # 10cm de marge (au lieu de 5cm)
+PENALTY_AREA_MARGIN = 0.15  # 10cm de marge (au lieu de 5cm)
 
 # ============================================================================
 # PARAMÈTRES DE DEBUG

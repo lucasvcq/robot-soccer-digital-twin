@@ -119,6 +119,35 @@ class FieldUtils:
             clamped = FieldUtils.clamp(clamped, margin)
         
         return clamped
+    
+    @staticmethod
+    def compute_pass_power(distance):
+        """
+        Calcule la puissance de passe adaptée à la distance
+        
+        Plus la distance est grande, plus la puissance est élevée
+        Interpolation linéaire entre POWER_PASS_MIN et POWER_PASS_MAX
+        
+        Args:
+            distance: Distance en mètres entre le passeur et le receveur
+            
+        Returns:
+            float: Puissance entre 0.0 et 1.0
+        """
+        import config
+        
+        # Clamper la distance dans la plage définie
+        distance = max(config.PASS_DISTANCE_MIN, 
+                      min(distance, config.PASS_DISTANCE_MAX))
+        
+        # Interpolation linéaire
+        # t = 0.0 pour distance minimale → POWER_PASS_MIN
+        # t = 1.0 pour distance maximale → POWER_PASS_MAX
+        t = (distance - config.PASS_DISTANCE_MIN) / (config.PASS_DISTANCE_MAX - config.PASS_DISTANCE_MIN)
+        
+        power = config.POWER_PASS_MIN + t * (config.POWER_PASS_MAX - config.POWER_PASS_MIN)
+        
+        return max(0.0, min(1.0, power))  # Sécurité : clamp entre 0 et 1
 
     @staticmethod
     def behind_point(ball, goal, distance):
