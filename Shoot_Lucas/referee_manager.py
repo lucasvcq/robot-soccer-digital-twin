@@ -64,7 +64,8 @@ class RefereeManager:
         """
         try:
             referee = self.client.referee
-            return referee.get("game_is_running", False) and not referee.get("game_paused", True)
+            #return referee.get("game_is_running", False) and not referee.get("game_paused", True)
+            return True
         except (KeyError, TypeError):
             return True
     

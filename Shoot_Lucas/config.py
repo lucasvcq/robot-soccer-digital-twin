@@ -148,7 +148,7 @@ PENALTY_AREA_MARGIN = 0.15  # 10cm de marge (au lieu de 5cm)
 DEBUG_VERBOSE = False
 
 # Afficher les décisions stratégiques
-DEBUG_STRATEGY = True
+DEBUG_STRATEGY = False
 
 # Afficher les informations de navigation
 DEBUG_NAVIGATION = False
