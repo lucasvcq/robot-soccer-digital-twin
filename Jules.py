@@ -183,18 +183,50 @@ class formule:
         robot_passeur.goto((x,y,O-pi)) # Une fois placé on avance et on fait la passe
         robot_passeur.kick(self.calc_kick_strength(DB,0.99)) # Fonction qui calcule la force du tir en fonction de la distance
 
-    def Spot_shoot(self,robot_tireur,terrain): # Tire au milieu des buts
-        P = robot_tireur.position # Position du robot tireur
-        
-        A = self.Angle_vecteur_objectif_objectif(P,self.client.ball) 
-        O = self.Angle_but(terrain) 
-            
-        self.Placement_vers_objectif(robot_tireur,A,O) 
-        
-        x,y = self.arret_balle(robot_tireur)
-        robot_tireur.goto((x,y,O-pi)) 
-        robot_tireur.kick(1)
+    def Spot_shoot(self, robot_tireur, terrain):
+        P = robot_tireur.position  # Position du robot tireur
+        angle_but = self.Angle_but(terrain)  # Angle du but (calculé une fois)
 
+        if terrain == "droit":
+            B = self.client.ball  # Position ACTUELLE de la balle
+    
+            if B[0] < -0.61 and -0.45 <= B[1] <= 0.45:
+                self.suivre_balle_distant(robot_tireur,terrain)
+                B = self.client.ball
+                return  # On quitte la fonction pour éviter de tirer
+
+            # Sinon, on se place pour tirer
+            angle_balle = self.Angle_vecteur_objectif_objectif(P, B)
+            self.Placement_vers_objectif(robot_tireur, angle_balle, angle_but)
+            x, y = self.arret_balle(robot_tireur)
+
+            # Vérification FINALE avant de tirer (au cas où la balle aurait bougé)
+            B = self.client.ball
+            if not (B[0] < -0.61 and -0.45 <= B[1] <= 0.45):
+                robot_tireur.goto((x, y, angle_but - math.pi))
+                robot_tireur.kick(1)
+   
+
+        else:  
+            B = self.client.ball  
+
+            if B[0] > 0.61 and -0.45 <= B[1] <= 0.45:
+                self.suivre_balle_distant(robot_tireur,terrain)
+                B = self.client.ball
+                return  # On quitte la fonction pour éviter de tirer
+
+            # Sinon, on se place pour tirer
+            angle_balle = self.Angle_vecteur_objectif_objectif(P, B)
+            self.Placement_vers_objectif(robot_tireur, angle_balle, angle_but)
+            x, y = self.arret_balle(robot_tireur)
+
+            # Vérification FINALE avant de tirer (au cas où la balle aurait bougé)
+            B = self.client.ball
+            if not (B[0] > 0.61 and -0.45 <= B[1] <= 0.45):
+                robot_tireur.goto((x, y, angle_but - math.pi))
+                robot_tireur.kick(1)
+
+          
     def Pass_objectif(self,robot_passeur,Objectif): # Faire une passe à endroit précis "objectif", on attend une coordonnée (x,y)
         Formule = formule(self.client)
  
@@ -238,7 +270,7 @@ class formule:
                 ux = dx / norme
                 uy = dy / norme
 
-                # Cible : 3 cm derrière la balle
+                # Cible : 1 cm derrière la balle
                 dist_cible = 0.1
                 x_dest = ball_pos[0] - dist_cible * ux
                 y_dest = ball_pos[1] - dist_cible * uy
@@ -249,6 +281,34 @@ class formule:
 
             time.sleep(0.05)  # Pause pour éviter la surcharge
 
+    def suivre_balle_distant(self,robot,terrain):
+        for v in self.vitesse_ball():  # Itère sur le générateur de vitesse
+            if v < 0.15:
+                print("Balle arrêtée ou trop lente, arrêt du suivi.")
+                break
+
+            ball_pos = self.client.ball
+            P_receveur = robot.position
+
+            # Calcul du vecteur Robot -> Balle
+            dx = ball_pos[0] - P_receveur[0]
+            dy = ball_pos[1] - P_receveur[1]
+            norme = math.sqrt(dx**2 + dy**2)
+
+            if norme > 0:
+                ux = dx / norme
+                uy = dy / norme
+
+                # Cible : 1 cm derrière la balle
+                dist_cible = 0.3
+                x_dest = ball_pos[0] - dist_cible * ux
+                y_dest = ball_pos[1] - dist_cible * uy
+                O = self.Angle_but(terrain) - math.pi
+
+                # Mise à jour de la destination
+                robot.goto((x_dest, y_dest, O), wait=False)
+
+            time.sleep(0.05)  # Pause pour éviter la surcharge
 
     def vitesse_ball(self):
         last_B = self.client.ball

@@ -12,9 +12,10 @@ class action :
         self.client = client
         self.Formule = formule(client)    
 
-    def Tire_vers_le_but(self,robot,terrain):     
-        self.Formule.Spot_shoot(robot,terrain)
-
+    def Tire_vers_le_but(self,robot,terrain):  
+        while True:   
+            self.Formule.Spot_shoot(robot,terrain)
+            time.sleep(0.05)
    
     def Pass_vers_objectif(self,robot1,robot2,objectif,terrain):
         D1 = self.Formule.distance_ball(robot1) # Distance balle-robot1
@@ -94,3 +95,4 @@ class action :
 with rsk.Client() as client:
     Action = action(client)
     Remi = remi(client)
+    Action.Tire_vers_le_but(client.green1,"droit")

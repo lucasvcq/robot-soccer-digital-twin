@@ -23,14 +23,14 @@ class Game:
         # On définit les coordonnées en fonction du côté
         if is_positive:
             # On est à Droite (+), on défend à Droite, on attaque à Gauche (-)
-            self.target_def = (0.9, 0)
-            self.target_att = (-0.9, 0)
+            self.target_def = (0.91, 0)
+            self.target_att = (-0.91, 0)
             self.sens_but = -1 
             self.terrain = "droit"
         else:
             # On est à Gauche (-), on défend à Gauche, on attaque à Droite (+)
-            self.target_def = (-0.9, 0)
-            self.target_att = (0.9, 0)
+            self.target_def = (-0.91, 0)
+            self.target_att = (0.91, 0)
             self.sens_but = 1
             self.terrain = "gauche"
 
