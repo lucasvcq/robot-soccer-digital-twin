@@ -102,6 +102,7 @@ class TeamController:
     def _check_referee_rules(self, state: GameState):
         """
         Vérifie les règles de l'arbitre et fait reculer les robots si nécessaire
+        AMÉLIORATION : Recul sans rotation (plus rapide)
         
         Args:
             state: État actuel du jeu
@@ -115,9 +116,16 @@ class TeamController:
             if self.referee.check_ball_abuse("1", state.robot1_pos, state.ball):
                 if self.referee.should_retreat_from_ball("1", state.robot1_pos, state.ball):
                     retreat_pos = self.referee.get_retreat_position(state.robot1_pos, state.ball)
-                    angle = FieldUtils.angle(state.robot1_pos, retreat_pos)
-                    print(f"[Referee] Robot 1 recule pour éviter abus de balle")
-                    self.client.green1.goto((retreat_pos[0], retreat_pos[1], angle), wait=False)
+                    
+                    # AMÉLIORATION : Garder l'orientation actuelle (pas de rotation)
+                    # On recule simplement en ligne droite
+                    current_angle = state.robot1_theta
+                    
+                    print(f"[Referee] Robot 1 recule pour éviter abus de balle (35cm)")
+                    try:
+                        self.client.green1.goto((retreat_pos[0], retreat_pos[1], current_angle), wait=False)
+                    except:
+                        pass
                     self.agent1.reset_navigation()
             
             # Zone de défense (notre zone)
@@ -130,9 +138,15 @@ class TeamController:
             if self.referee.check_ball_abuse("2", state.robot2_pos, state.ball):
                 if self.referee.should_retreat_from_ball("2", state.robot2_pos, state.ball):
                     retreat_pos = self.referee.get_retreat_position(state.robot2_pos, state.ball)
-                    angle = FieldUtils.angle(state.robot2_pos, retreat_pos)
-                    print(f"[Referee] Robot 2 recule pour éviter abus de balle")
-                    self.client.green2.goto((retreat_pos[0], retreat_pos[1], angle), wait=False)
+                    
+                    # AMÉLIORATION : Garder l'orientation actuelle (pas de rotation)
+                    current_angle = state.robot2_theta
+                    
+                    print(f"[Referee] Robot 2 recule pour éviter abus de balle (35cm)")
+                    try:
+                        self.client.green2.goto((retreat_pos[0], retreat_pos[1], current_angle), wait=False)
+                    except:
+                        pass
                     self.agent2.reset_navigation()
             
             # Zone de défense (notre zone)
@@ -189,8 +203,8 @@ class TeamController:
         distance_to_receiver = FieldUtils.dist(attacker.robot.position, pass_target)
         pass_power = FieldUtils.compute_pass_power(distance_to_receiver)
         
-        if config.DEBUG_STRATEGY:
-            print(f"\n[Pass] Distance: {distance_to_receiver:.2f}m → Power: {pass_power:.2f}")
+        if config.DEBUG_VERBOSE:
+            print(f"[Pass] Distance: {distance_to_receiver:.2f}m → Power: {pass_power:.2f}")
         
         # Configuration de l'attaquant
         attacker.set_target(pass_target)

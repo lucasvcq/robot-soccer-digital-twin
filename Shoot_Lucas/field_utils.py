@@ -147,7 +147,8 @@ class FieldUtils:
         
         power = config.POWER_PASS_MIN + t * (config.POWER_PASS_MAX - config.POWER_PASS_MIN)
         
-        return max(0.0, min(1.0, power))  # Sécurité : clamp entre 0 et 1
+        # Sécurité : clamp entre 0 et 1
+        return max(0.0, min(1.0, power))
 
     @staticmethod
     def behind_point(ball, goal, distance):
@@ -255,44 +256,27 @@ class FieldUtils:
     def is_in_penalty_area(point, goal_x):
         """
         Vérifie si un point est dans la zone interdite (surface de réparation)
-        La zone RÉELLE est de 0.30m × 0.90m DEVANT les cages (côté terrain)
-        La MARGE est une extension de sécurité pour éviter les violations
-        
-        IMPORTANT: La zone est DEVANT le but (vers le terrain), pas derrière !
-        
-        Args:
-            point: Tuple (x, y) à vérifier
-            goal_x: Position X du but (pour savoir de quel côté)
-            
-        Returns:
-            bool: True si le point est dans la zone interdite (incluant la marge)
+        Zone RÉELLE : 0.30m (profondeur) × 0.90m (largeur)
         """
         from config import PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH, PENALTY_AREA_MARGIN
-        
-        # La zone TOTALE = zone réglementaire + marge de sécurité
+    
+        # Profondeur avec marge
         total_depth = PENALTY_AREA_DEPTH + PENALTY_AREA_MARGIN
-        total_width = PENALTY_AREA_WIDTH + 2 * PENALTY_AREA_MARGIN
-        
-        # CORRECTION: La zone s'étend DEPUIS le but VERS le terrain
+    
+        # Largeur avec marge (symétrique)
+        total_half_width = (PENALTY_AREA_WIDTH / 2.0) + PENALTY_AREA_MARGIN
+    
+        # Zone en X
         if goal_x < 0:
-            # But à GAUCHE (X négatif)
-            # Zone: du bord gauche (MIN_X) jusqu'à (MIN_X + depth)
-            # Un point est dans la zone si: MIN_X <= X <= MIN_X + depth
-            zone_start = FieldUtils.MIN_X
-            zone_end = FieldUtils.MIN_X + total_depth
-            in_x_range = zone_start <= point[0] <= zone_end
+            # But à GAUCHE
+            in_x_range = FieldUtils.MIN_X <= point[0] <= (FieldUtils.MIN_X + total_depth)
         else:
-            # But à DROITE (X positif)
-            # Zone: de (MAX_X - depth) jusqu'au bord droit (MAX_X)
-            # Un point est dans la zone si: MAX_X - depth <= X <= MAX_X
-            zone_start = FieldUtils.MAX_X - total_depth
-            zone_end = FieldUtils.MAX_X
-            in_x_range = zone_start <= point[0] <= zone_end
-        
-        # Limites en Y (centrées sur 0)
-        y_half_width = total_width / 2.0
-        in_y_range = -y_half_width <= point[1] <= y_half_width
-        
+            # But à DROITE  
+            in_x_range = (FieldUtils.MAX_X - total_depth) <= point[0] <= FieldUtils.MAX_X
+    
+        # Zone en Y (centrée sur 0)
+        in_y_range = -total_half_width <= point[1] <= total_half_width
+    
         return in_x_range and in_y_range
     
     @staticmethod
