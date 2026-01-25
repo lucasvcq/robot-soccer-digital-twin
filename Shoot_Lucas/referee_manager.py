@@ -4,6 +4,7 @@ Analyse les règles et anticipe les actions de l'arbitre
 """
 import time
 from field_utils import FieldUtils
+import config
 
 class RefereeManager:
     """
