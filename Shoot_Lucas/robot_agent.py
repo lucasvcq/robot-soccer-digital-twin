@@ -2,7 +2,7 @@
 Agent de contrôle pour un robot individuel
 Gère la navigation, l'orientation et le tir
 """
-import rsk
+from rsk.client import ClientError
 from field_utils import FieldUtils
 import config
 
@@ -89,6 +89,7 @@ class RobotAgent:
     def _handle_orientation(self, rpos, rtheta):
         """
         Gère l'orientation du robot vers la cible
+        AMÉLIORATION : En mode rapide, orientation non-bloquante
         
         Args:
             rpos: Position (x, y) du robot
@@ -103,10 +104,21 @@ class RobotAgent:
         # Erreur d'angle (normalisée)
         ang_err = FieldUtils.wrap(desired_theta - rtheta)
         
-        # Si l'erreur dépasse la tolérance, on tourne sur place
-        if abs(ang_err) > config.ANGLE_TOL:
-            self.robot.goto((rpos[0], rpos[1], desired_theta), wait=True)
-            return True  # Occupé à tourner
+        # Tolérance adaptée au mode
+        angle_tol = config.FAST_ANGLE_TOL if config.FAST_MODE else config.ANGLE_TOL
+        
+        # Si l'erreur dépasse la tolérance
+        if abs(ang_err) > angle_tol:
+            try:
+                # AMÉLIORATION : En mode rapide, wait=False
+                wait_for_orientation = not config.FAST_MODE
+                self.robot.goto((rpos[0], rpos[1], desired_theta), wait=wait_for_orientation)
+            except ClientError:
+                pass
+            
+            # En mode rapide, on ne bloque pas (return False)
+            # Le robot tire même si pas parfaitement orienté
+            return not config.FAST_MODE
         
         return False  # Bien orienté
     
@@ -138,28 +150,41 @@ class RobotAgent:
         desired_theta = FieldUtils.angle(rpos, self.goal)
         ang_err = FieldUtils.wrap(desired_theta - rtheta)
         
+        # Tolérances adaptées au mode
+        capture_dist = config.FAST_CAPTURE_DISTANCE if config.FAST_MODE else config.CAPTURE_DISTANCE
+        angle_tol = config.FAST_ANGLE_TOL if config.FAST_MODE else config.ANGLE_TOL
+        
         # Phase 1 : Approche finale si trop loin
-        if d_to_ball > config.CAPTURE_DISTANCE:
-            # On avance doucement vers la balle en gardant l'angle vers le but
+        if d_to_ball > capture_dist:
+            # AMÉLIORATION : Approche NON-BLOQUANTE (wait=False)
+            # Le robot avance vers la balle sans attendre d'être parfaitement positionné
             u_rg = FieldUtils.unit_vector(rpos, self.goal)
-            target_pos = (
-                ball[0] - u_rg[0] * 0.02,  # 2cm avant la balle
-                ball[1] - u_rg[1] * 0.02,
-                desired_theta
-            )
             
-            # NOUVEAU : Vérifier que la position d'approche n'est pas dans la zone interdite
+            # En mode rapide, on vise directement la balle (pas 2cm avant)
+            if config.FAST_MODE:
+                target_pos = (ball[0], ball[1], desired_theta)
+            else:
+                target_pos = (
+                    ball[0] - u_rg[0] * 0.02,  # 2cm avant la balle
+                    ball[1] - u_rg[1] * 0.02,
+                    desired_theta
+                )
+            
+            # Vérifier que la position d'approche n'est pas dans la zone interdite
             if FieldUtils.is_in_penalty_area(target_pos[:2], self.goal[0]):
-                # Trop proche de la zone, ne pas avancer
                 if config.DEBUG_VERBOSE:
                     print(f"[{self.name}] Position d'approche trop proche de la zone interdite")
                 return False
             
-            self.robot.goto(target_pos, wait=True)
+            try:
+                # CHANGEMENT CRITIQUE : wait=False au lieu de wait=True
+                self.robot.goto(target_pos, wait=False)
+            except ClientError:
+                pass
             return False
         
         # Phase 2 : Tir si toutes les conditions sont réunies
-        if d_to_ball <= config.CAPTURE_DISTANCE and abs(ang_err) <= config.ANGLE_TOL:
+        if d_to_ball <= capture_dist and abs(ang_err) <= angle_tol:
             try:
                 if config.DEBUG_VERBOSE:
                     print(f"\n[{self.name}] 🚀 KICK (Power={self.kick_power:.1f}) !")
@@ -172,8 +197,13 @@ class RobotAgent:
                 
                 return True  # Tir effectué
                 
-            except rsk.ClientError as e:
-                print(f"\n[{self.name}] ❌ Erreur kick: {e}")
+            except ClientError as e:
+                # Robot préempté pendant le tir (pénalité, pause, etc.)
+                if "preempted" in str(e):
+                    if config.DEBUG_VERBOSE:
+                        print(f"\n[{self.name}] Robot préempté pendant le tir")
+                else:
+                    print(f"\n[{self.name}] ❌ Erreur kick: {e}")
                 return False
         
         return False
@@ -181,6 +211,7 @@ class RobotAgent:
     def goto_position(self, target_pos, target_theta=None):
         """
         Envoie le robot à une position donnée (utilisé pour le receveur)
+        Gère les exceptions de préemption
         
         Args:
             target_pos: Tuple (x, y) de la position cible
@@ -189,7 +220,11 @@ class RobotAgent:
         if target_theta is None:
             target_theta = self.robot.orientation
         
-        self.robot.goto((target_pos[0], target_pos[1], target_theta), wait=False)
+        try:
+            self.robot.goto((target_pos[0], target_pos[1], target_theta), wait=False)
+        except ClientError:
+            # Robot préempté, on ignore silencieusement
+            pass
     
     def reset_navigation(self):
         """Réinitialise l'état de navigation"""

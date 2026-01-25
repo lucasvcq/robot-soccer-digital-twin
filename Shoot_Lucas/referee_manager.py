@@ -64,8 +64,7 @@ class RefereeManager:
         """
         try:
             referee = self.client.referee
-            #return referee.get("game_is_running", False) and not referee.get("game_paused", True)
-            return True
+            return referee.get("game_is_running", False) and not referee.get("game_paused", True)
         except (KeyError, TypeError):
             return True
     
@@ -82,6 +81,10 @@ class RefereeManager:
         Returns:
             bool: True si risque d'abus de balle
         """
+        # Vérification de validité des positions
+        if robot_pos is None or ball_pos is None:
+            return False
+        
         ABUSE_RADIUS = 0.25  # 25cm
         ABUSE_TIME = 3.0     # 3 secondes
         
@@ -100,7 +103,8 @@ class RefereeManager:
                 
                 # Avertissement à 2.5s
                 if elapsed > 2.5 and elapsed < ABUSE_TIME:
-                    print(f"[Referee] ⚠️  Robot {robot_id} proche de la balle depuis {elapsed:.1f}s (limite: {ABUSE_TIME}s)")
+                    if config.DEBUG_VERBOSE:
+                        print(f"[Referee] ⚠️  Robot {robot_id} proche de la balle depuis {elapsed:.1f}s")
                     return True
                 
                 # Dépassement
@@ -155,6 +159,7 @@ class RefereeManager:
         """
         Détermine si le robot devrait s'éloigner de la balle
         pour éviter l'abus de balle
+        AMÉLIORATION : Recule à 2.5s (au lieu de 2.7s) pour plus de marge
         
         Args:
             robot_id: "1" ou "2"
@@ -166,26 +171,29 @@ class RefereeManager:
         """
         if robot_id in self.ball_contact_start:
             elapsed = time.time() - self.ball_contact_start[robot_id]
-            # S'éloigner à 2.7s (avant la limite de 3s)
-            return elapsed > 2.7
+            # S'éloigner à 2.5s (au lieu de 2.7s) pour plus de temps de réaction
+            return elapsed > 2.5
         return False
     
     def get_retreat_position(self, robot_pos, ball_pos):
         """
         Calcule une position de recul pour éviter l'abus de balle
+        AMÉLIORATION : Recule à 35cm (au lieu de 30cm) pour plus de sécurité
         
         Args:
             robot_pos: Position actuelle du robot
             ball_pos: Position de la balle
             
         Returns:
-            Tuple (x, y): Position de recul (> 25cm de la balle)
+            Tuple (x, y): Position de recul (> 35cm de la balle)
         """
-        # S'éloigner de 30cm de la balle (plus que les 25cm requis)
+        # S'éloigner de 35cm de la balle (bien au-dessus des 25cm requis)
+        RETREAT_DISTANCE = 0.35  # 35cm au lieu de 30cm
+        
         direction = FieldUtils.unit_vector(ball_pos, robot_pos)
         retreat = (
-            ball_pos[0] + direction[0] * 0.30,
-            ball_pos[1] + direction[1] * 0.30
+            ball_pos[0] + direction[0] * RETREAT_DISTANCE,
+            ball_pos[1] + direction[1] * RETREAT_DISTANCE
         )
         return FieldUtils.clamp(retreat)
     
