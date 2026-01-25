@@ -2,7 +2,6 @@ import threading
 import time
 import rsk
 from test_remi import remi
-from Jules_Execute import action
 from math import sqrt
 
 # ====================================================== #
@@ -33,7 +32,7 @@ class GameManager:
 # ================= ROBOT CONTROL ======================= #
 # ====================================================== #
 
-def controle_robot(remi_obj,jules_obj, robot, robot_id, game, vitesse, err, marge, seuil_ball, role, start_time):
+def controle_robot(remi_obj, robot, robot_id, game, vitesse, err, marge, seuil_ball, role, start_time):
     ball_last_pos = None
     ball_stop_timer = 0
     
@@ -95,7 +94,7 @@ def controle_robot(remi_obj,jules_obj, robot, robot_id, game, vitesse, err, marg
                     if role == "front":
                         # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
                         but_adv = (-0.9 * cote, 0.25 * yposition) 
-                        ###########jules_obj.Pass_vers_objectif(self,robot1,robot2,objectif,terrain)
+                        #########################remi_obj.attaque(robot, ball, but_adv, offset=0.1)
                     else:
                         # Le deuxième reste aux buts
                         remi_obj.defense_passive(robot, ball, zone_def, err, vitesse, marge, seuil_ball, "back", cote, 0.2)
@@ -114,7 +113,6 @@ if __name__ == "__main__":
         game = GameManager(client)
         game.choisir_couleur()
         Remi = remi(client)
-        Jules = action(client)
 
         if game.couleur == "green":
             r1, r2 = client.green1, client.green2
@@ -128,8 +126,8 @@ if __name__ == "__main__":
             "start_time": time.time()
         }
 
-        t1 = threading.Thread(target=controle_robot, args=(Remi, Jules, r1, "1", game, params["vitesse"], params["err"], 0.3, params["seuil_ball"], "front", params["start_time"]), daemon=True)
-        t2 = threading.Thread(target=controle_robot, args=(Remi, Jules, r2, "2", game, params["vitesse"], params["err"], 0.2, params["seuil_ball"], "back", params["start_time"]), daemon=True)
+        t1 = threading.Thread(target=controle_robot, args=(Remi, r1, "1", game, params["vitesse"], params["err"], 0.3, params["seuil_ball"], "front", params["start_time"]), daemon=True)
+        t2 = threading.Thread(target=controle_robot, args=(Remi, r2, "2", game, params["vitesse"], params["err"], 0.2, params["seuil_ball"], "back", params["start_time"]), daemon=True)
 
         t1.start()
         t2.start()
