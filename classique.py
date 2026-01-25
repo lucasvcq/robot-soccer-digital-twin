@@ -1,53 +1,22 @@
 import threading
 import time
-import rsk
-from test_remi import remi
 from math import sqrt
 
-# ====================================================== #
-# ================== GAME MANAGER ====================== #
-# ====================================================== #
-
-class GameManager:
-    def __init__(self, client):
-        self.client = client
-        self.couleur = None
-
-    def choisir_couleur(self):
-        while self.couleur not in ["green", "blue"]:
-            print("Choisis la couleur : 'green' ou 'blue'")
-            self.couleur = input("> ").strip().lower()
-        print(f"Couleur choisie : {self.couleur}")
-
-    def zone_defense(self, color):
-        side = self.client.referee["teams"][color]["x_positive"]
-        return (0.9, 0) if side else (-0.9, 0)
-
-    def direction_goal(self, color):
-        side = self.client.referee["teams"][color]["x_positive"]
-        # cote = 1 si nos buts sont à droite (x>0), -1 si à gauche (x<0)
-        return 1 if side else -1
-
-# ====================================================== #
-# ================= ROBOT CONTROL ======================= #
-# ====================================================== #
-
-def controle_robot(remi_obj, robot, robot_id, game, vitesse, err, marge, seuil_ball, role, start_time):
+classique:
+def controle_robot(remi_obj, robot, robot_id, couleur, zone_def, cote, vitesse, err, marge, seuil_ball, role, start_time):
     ball_last_pos = None
     ball_stop_timer = 0
     
     while True:
         try:
             # Vérification si le robot a le droit de bouger (Referee)
-            if not remi_obj.can_move(game.couleur, robot_id):
+            if not remi_obj.can_move(couleur, robot_id):
                 time.sleep(0.5)
                 continue
 
             ball = remi_obj.client.ball
             if ball is None: continue
 
-            zone_def = game.zone_defense(game.couleur)
-            cote = game.direction_goal(game.couleur)
             elapsed = time.time() - start_time
             
             # --- 1. DETECTION IMMOBILITÉ BALLE (3 SECONDES) ---
@@ -104,35 +73,24 @@ def controle_robot(remi_obj, robot, robot_id, game, vitesse, err, marge, seuil_b
         
         time.sleep(0.05) # Petite pause pour ne pas saturer le CPU
 
-# ====================================================== #
-# ================= LANCEMENT MATCH ===================== #
-# ====================================================== #
 
-if __name__ == "__main__":
-    with rsk.Client() as client:
-        game = GameManager(client)
-        game.choisir_couleur()
-        Remi = remi(client)
-        
-        if game.couleur == "green":
-            r1, r2 = client.green1, client.green2
-        else:
-            r1, r2 = client.blue1, client.blue2
+def match_classique(Remi, robot1, robot2, couleur, zone_def, cote, start_time):
+    r1, r2 = robot1, robot2
+    
 
-        params = {
-            "vitesse": 3.0,
-            "err": 0.05,
-            "seuil_ball": 0.15,
-            "start_time": time.time()
-        }
+    params = {
+        "vitesse": 3.0,
+        "err": 0.05,
+        "seuil_ball": 0.15
+    }
 
-        t1 = threading.Thread(target=controle_robot, args=(Remi, r1, "1", game, params["vitesse"], params["err"], 0.3, params["seuil_ball"], "front", params["start_time"]), daemon=True)
-        t2 = threading.Thread(target=controle_robot, args=(Remi, r2, "2", game, params["vitesse"], params["err"], 0.2, params["seuil_ball"], "back", params["start_time"]), daemon=True)
+    t1 = threading.Thread(target=controle_robot, args=(Remi, r1, "1", couleur, zone_def, cote, params["vitesse"], params["err"], 0.3, params["seuil_ball"], "front", start_time), daemon=True)
+    t2 = threading.Thread(target=controle_robot, args=(Remi, r2, "2", couleur, zone_def, cote, params["vitesse"], params["err"], 0.2, params["seuil_ball"], "back", start_time), daemon=True)
 
-        t1.start()
-        t2.start()
+    t1.start()
+    t2.start()
 
-        try:
-            while True: time.sleep(1)
-        except KeyboardInterrupt:
-            print("\nArrêt.")
+    try:
+        while True: time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nArrêt.")
