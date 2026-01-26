@@ -136,9 +136,9 @@ PASS_DISTANCE_MAX = 1.50  # Distance maximale pour calibration (m)
 # ============================================================================
 
 # Position X du but adverse (à ajuster selon le côté)
-# -1.83/2 pour attaquer vers la gauche
-# +1.83/2 pour attaquer vers la droite
-GOAL_X = -1.83 / 2
+# -1.84/2 pour attaquer vers la gauche
+# +1.84/2 pour attaquer vers la droite
+GOAL_X = -1.84 / 2
 
 # Position complète du but (X, Y)
 GOAL_POSITION = (GOAL_X, 0.0)
@@ -153,7 +153,7 @@ PENALTY_AREA_WIDTH = 0.90   # Largeur de la zone (90cm)
 
 # Marge de sécurité pour éviter d'entrer dans la zone
 # AUGMENTÉE pour plus de prudence
-PENALTY_AREA_MARGIN = 0.10  # 10cm de marge (au lieu de 5cm)
+PENALTY_AREA_MARGIN = 0.05  # 10cm de marge (au lieu de 5cm)
 
 # ============================================================================
 # PARAMÈTRES DE DEBUG

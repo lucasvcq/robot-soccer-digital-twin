@@ -40,14 +40,16 @@ class RefereeManager:
             # Le robot est préempté si preempted = True
             if robot_info.get("preempted", False):
                 reasons = robot_info.get("preemption_reasons", [])
-                print(f"[Referee] Robot {robot_id} préempté: {', '.join(reasons)}")
+                if config.DEBUG_VERBOSE:
+                    print(f"[Referee] Robot {robot_id} préempté: {', '.join(reasons)}")
                 return False
             
             # Le robot est pénalisé
             if robot_info.get("penalized", False):
                 reason = robot_info.get("penalized_reason", "unknown")
                 remaining = robot_info.get("penalized_remaining", 0)
-                print(f"[Referee] Robot {robot_id} pénalisé ({reason}): {remaining}s restantes")
+                if config.DEBUG_VERBOSE:
+                    print(f"[Referee] Robot {robot_id} pénalisé ({reason}): {remaining}s restantes")
                 return False
             
             return True

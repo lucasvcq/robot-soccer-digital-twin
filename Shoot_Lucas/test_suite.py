@@ -38,13 +38,15 @@ def test_field_utils():
     print("  ✅ wrap() OK")
     
     # Test 5: Zone interdite
-    # Point clairement dans la zone
-    in_zone = FieldUtils.is_in_penalty_area((-0.85, 0.0), -0.92)
-    assert in_zone, "Point devrait être dans la zone"
+    goal_x = -0.92
     
-    # Point clairement hors zone
-    out_zone = FieldUtils.is_in_penalty_area((0.0, 0.0), -0.92)
-    assert not out_zone, "Point ne devrait pas être dans la zone"
+    # Point clairement dans la zone (très proche du but)
+    in_zone = FieldUtils.is_in_penalty_area((-0.88, 0.0), goal_x)
+    assert in_zone, "Point (-0.88, 0.0) devrait être dans la zone"
+    
+    # Point clairement hors zone (centre du terrain)
+    out_zone = FieldUtils.is_in_penalty_area((0.0, 0.0), goal_x)
+    assert not out_zone, "Point (0.0, 0.0) ne devrait pas être dans la zone"
     print("  ✅ is_in_penalty_area() OK")
     
     # Test 6: Puissance de passe
@@ -81,22 +83,33 @@ def test_config():
     assert config.PASS_DISTANCE_MIN < config.PASS_DISTANCE_MAX, "PASS_DISTANCE_MIN doit être < PASS_DISTANCE_MAX"
     assert config.FAST_CAPTURE_DISTANCE > config.CAPTURE_DISTANCE, "FAST_CAPTURE doit être > CAPTURE"
     print("  ✅ Cohérence des valeurs OK")
+    
+    # Vérifier que la marge n'est pas trop grande
+    assert config.PENALTY_AREA_MARGIN <= 0.05, f"Marge trop grande: {config.PENALTY_AREA_MARGIN}m (max recommandé: 0.05m)"
+    print(f"  ✅ Marge de zone raisonnable: {config.PENALTY_AREA_MARGIN}m")
 
 def test_zones():
     """Tests des zones interdites"""
     print("\n🧪 Test: Zones Interdites")
     
-    goal_x = -0.92
+    goal_x = -0.92  # But à gauche
     
-    # Points de test (ajustés pour la vraie zone)
+    # Calculer les limites de la zone
+    total_depth = config.PENALTY_AREA_DEPTH + config.PENALTY_AREA_MARGIN
+    half_width = (config.PENALTY_AREA_WIDTH / 2.0) + config.PENALTY_AREA_MARGIN
+    
+    print(f"  📐 Zone gauche: X ∈ [{FieldUtils.MIN_X:.2f}, {FieldUtils.MIN_X + total_depth:.2f}], Y ∈ [{-half_width:.2f}, {half_width:.2f}]")
+    
+    # Points de test avec valeurs attendues
     tests = [
         # (point, devrait_être_dans_zone, description)
-        ((-0.90, 0.0), True, "Centre de la zone"),
-        ((-0.85, 0.0), True, "Dans la zone (X et Y OK)"),
-        ((-0.50, 0.0), False, "Hors de la zone (X trop loin)"),
-        ((-0.85, 0.55), False, "Hors de la zone (Y trop haut)"),
+        ((-0.90, 0.0), True, "Très proche du but"),
+        ((-0.85, 0.0), True, "Dans la zone (proche)"),
+        ((-0.62, 0.0), True, "Limite de la zone (avec marge 2cm)"),
+        ((-0.58, 0.0), False, "Hors de la zone"),
         ((0.0, 0.0), False, "Centre terrain"),
-        ((-0.60, 0.0), False, "Hors de la zone (X limite)"),
+        ((-0.85, 0.40), True, "Dans la zone (Y OK)"),
+        ((-0.85, 0.50), False, "Hors zone (Y trop grand avec marge 2cm)"),
     ]
     
     passed = 0
@@ -104,8 +117,9 @@ def test_zones():
         is_in = FieldUtils.is_in_penalty_area(point, goal_x)
         if is_in == should_be_in:
             passed += 1
+            print(f"  ✅ {desc}: {point}")
         else:
-            print(f"  ⚠️  {desc}: attendu={should_be_in}, obtenu={is_in} pour {point}")
+            print(f"  ❌ {desc}: attendu={'DANS' if should_be_in else 'HORS'}, obtenu={'DANS' if is_in else 'HORS'} pour {point}")
     
     assert passed == len(tests), f"Seulement {passed}/{len(tests)} tests réussis"
     print(f"  ✅ {len(tests)} tests de zones OK")

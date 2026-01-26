@@ -309,6 +309,3 @@ class remi:
             theta_shoot = atan2(ys, xs)
             robot.goto((xb, yb, theta_shoot), wait=False)
             robot.kick()
-
-
-    
