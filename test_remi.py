@@ -1,5 +1,5 @@
 from math import sqrt, cos, sin, atan2, pi
-import time
+
 class remi:
     def __init__(self, client):
         self.client = client
@@ -338,82 +338,74 @@ class remi:
     def score_total(self,team):
         self.client.referee["teams"][team]["score"]
         
-    def controle_robot(remi_obj, jules_obj, robot, robot_id, game, vitesse, err, marge, seuil_ball, role_initial, start_time):
+    def controle_robot(remi_obj,jules_obj, robot, robot_id, game, vitesse, err, marge, seuil_ball, role, start_time):
         ball_last_pos = None
         ball_stop_timer = 0
-
+    
         while True:
             try:
-                # --- 1. MISE À JOUR CRITIQUE (indispensable pour le threading) ---
-                game.update_info() 
-
-                # Vérification si le robot a le droit de bouger
-                if not remi_obj.can_move(game.color, robot_id):
-                    robot.control(0, 0, 0)
-                    time.sleep(0.1)
+                # Vérification si le robot a le droit de bouger (Referee)
+                if not remi_obj.can_move(game.couleur, robot_id):
+                    time.sleep(0.5)
                     continue
 
                 ball = remi_obj.client.ball
-                if ball is None: 
-                    time.sleep(0.05)
-                    continue
+                if ball is None: continue
 
-                # --- 2. RÉCUPÉRATION DES DONNÉES DU TERRAIN ---
-                zone_def = game.target_def
-                cote = game.sens_but
-                terrain = game.terrain
+                zone_def = game.zone_defense(game.couleur)
+                cote = game.direction_goal(game.couleur)
                 elapsed = time.time() - start_time
 
-                # --- 3. DÉTECTION IMMOBILITÉ BALLE ---
+                # --- 1. DETECTION IMMOBILITÉ BALLE (3 SECONDES) ---
                 is_ball_stuck = False
                 if ball_last_pos is not None:
                     dist_mouv = sqrt((ball[0]-ball_last_pos[0])**2 + (ball[1]-ball_last_pos[1])**2)
-                    if dist_mouv < 0.01:
-                        ball_stop_timer += 0.05
+                    if dist_mouv < 0.01: # Si elle bouge de moins d'1cm
+                        ball_stop_timer += 0.1
                     else:
                         ball_stop_timer = 0
                     if ball_stop_timer >= 3.0:
                         is_ball_stuck = True
                 ball_last_pos = ball
 
-                # --- 4. GESTION DYNAMIQUE DU RÔLE (2 VS 2) ---
-                # Si on est 2 actifs, on vérifie qui est le plus proche pour définir le rôle
-                if game.nb_nos_actifs == 2:
-                    r1, r2 = game.nos_actifs[0], game.nos_actifs[1]
-                    d1 = remi_obj.distance_objectif(r1, ball)
-                    d2 = remi_obj.distance_objectif(r2, ball)
+                # --- 2. LOGIQUE STRATÉGIQUE ---
 
-                    if robot == r1:
-                        role = "front" if d1 < d2 else "back"
-                    else:
-                        role = "front" if d2 <= d1 else "back"
+                # Condition : La balle est dans notre camp ?
+                # (Si cote=1, notre camp est x > 0. Si cote=-1, notre camp est x < 0)
+                ball_dans_notre_camp = (ball[0] * cote > 0)
+                x,y = robot.position
+                if y>0:
+                    yposition=1
                 else:
-                    role = role_initial # On garde le rôle passé par défaut si on est seul
+                    yposition=-1
 
-                # --- 5. LOGIQUE STRATÉGIQUE ---
-                # Camp adverse : x * cote > 0  |  Notre camp : x * cote < 0
-                ball_dans_notre_camp = (ball[0] * cote < 0)
-
-                x, y = robot.position
-                yposition = 1 if y > 0 else -1
-
+                # A. MODE DEFENSE (Balle dans notre camp)
                 if ball_dans_notre_camp and not is_ball_stuck:
-                    # MODE DEFENSE
                     remi_obj.defense_passive(robot, ball, zone_def, err, vitesse, marge, seuil_ball, role, cote, 0.2)
+
+                # B. MODE ATTAQUE (Balle immobile OU Hors de notre camp)
                 else:
-                    # MODE ATTAQUE
                     if elapsed < 30:
+                        # Les 30 premières secondes
                         if role == "front":
+                            # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
                             but_adv = (-0.9 * cote, 0.25 * yposition) 
-                            remi_obj.attaque(robot, ball, but_adv, offset=0.1)
+                            ##########################remi_obj.attaque(robot, ball, but_adv, offset=0.1)
                         else:
+                            # Le deuxième reste aux buts
                             remi_obj.defense_passive(robot, ball, zone_def, err, vitesse, marge, seuil_ball, "back", cote, 0.2)
-                    else:
-                        # Après 30 secondes
+
+                    elif elapsed > 30 and elapsed < 240:
+                        # Après 30 secondes : Attaque normale
                         if role == "front":
-                            jules_obj.Tire_vers_le_but(robot, terrain)
+                            # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
+                            but_adv = (-0.9 * cote, 0.25 * yposition) 
+                            ###########jules_obj.Pass_vers_objectif(self,robot1,robot2,objectif,terrain)
                         else:
+                            # Le deuxième reste aux buts
                             remi_obj.defense_passive(robot, ball, zone_def, err, vitesse, marge, seuil_ball, "back", cote, 0.2)
 
             except Exception as e:
                 print(f"Erreur robot {robot_id}: {e}")
+
+            time.sleep(0.05) # Petite pause pour ne pas saturer le CPU
