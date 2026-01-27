@@ -172,7 +172,6 @@ class Game:
 
                 return
             elif self.nb_adv_actifs == 1:
-<<<<<<< HEAD
                 print(">>> Supériorité numérique")
                 if role == "front":
                     # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
@@ -181,13 +180,6 @@ class Game:
                 else:
                     # Le deuxième reste aux buts
                     Remi.defense_passive(robot, ball, zone_def, params["err"], params["vitesse"], 0.2, params["seuil_ball"], "back", -cote, 0.2)
-=======
-                try :
-                    print(">>> Supériorité numérique")
-                    Action.supériorité_numérique(self.nos_actifs[0],self.nos_actifs[1],self.adv_penalises[0],self.terrain,self.target_def)
-                except Exception as e:
-                    print(f"Erreur robot: {e}")
->>>>>>> fb9a3c38d60554d0d7b2bec697e4524d4ee2a130
 
             elif self.nb_adv_actifs == 0:
                 print(">>> Aucun adversaire sur le terrain")
@@ -201,6 +193,7 @@ class Game:
 
         elif role == "back":
             return  
+
         elif self.nb_nos_actifs == 1:
             if self.nb_adv_actifs == 2:
                 try :
