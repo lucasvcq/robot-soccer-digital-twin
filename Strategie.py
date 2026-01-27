@@ -274,6 +274,3 @@ if __name__ == "__main__":
                 print(f"Erreur sur {client.green1}: {e}")
                 break
 
-
-
-
