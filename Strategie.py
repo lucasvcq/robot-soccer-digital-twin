@@ -1,10 +1,14 @@
+print("1")
 import rsk
+from math import sqrt
 import time
 import threading
 from test_remi import remi
+print("3")
 from Jules_Execute import action
+print("4")
 from Jules import formule
-
+print("5")
 class Game:
     def __init__(self, client, color):
         self.client = client
@@ -70,23 +74,80 @@ class Game:
         # Mises à jour des compteurs pour simplifier les conditions
         self.nb_nos_actifs = len(self.nos_actifs)
         self.nb_adv_actifs = len(self.adv_actifs)
+    
 
-    def executer_strategie(self, robot):
+    def executer_strategie(self, robot, zone_def, cote, ball, role, ball_last_pos, ball_stop_timer):
         # 1. On met à jour les données (le "cerveau" scanne le terrain)
         self.update_info()
-
+        params = {
+            "vitesse": 3.0,
+            "err": 0.05,
+            "seuil_ball": 0.15,
+            "start_time": time.time()
+        }
         # 2. Prise de décision basée sur les variables self déjà calculées
         if self.nb_nos_actifs == 2:
             if self.nb_adv_actifs == 2:
                 print(">>> 2 vs 2 : Match classique")
-                params = {
-                    "vitesse": 3.0,
-                    "err": 0.05,
-                    "seuil_ball": 0.15,
-                    "start_time": time.time()
-                    }
-                Remi.controle_robot(Action, robot, "1", game, params["vitesse"], params["err"], 0.3, params["seuil_ball"], "front", params["start_time"])
-            
+                
+                elapsed = time.time() - start_time
+                print(elapsed)
+                # --- 1. DETECTION IMMOBILITÉ BALLE (3 SECONDES) ---
+                is_ball_stuck = False
+                if ball_last_pos is not None:
+                    dist_mouv = sqrt((ball[0]-ball_last_pos[0])**2 + (ball[1]-ball_last_pos[1])**2)
+                    if dist_mouv < 0.01: # Si elle bouge de moins d'1cm
+                        ball_stop_timer += 0.1
+                    else:
+                        ball_stop_timer = 0
+                    if ball_stop_timer >= 3.0:
+                        is_ball_stuck = True
+                ball_last_pos = ball
+
+                # --- 2. LOGIQUE STRATÉGIQUE ---
+
+                # Condition : La balle est dans notre camp ?
+                # (Si cote=1, notre camp est x > 0. Si cote=-1, notre camp est x < 0)
+                ball_dans_notre_camp = (-ball[0] * cote > 0)
+                x,y = robot.position
+                if y>0:
+                    yposition=1
+                else:
+                    yposition=-1
+
+                # A. MODE DEFENSE (Balle dans notre camp)
+                if ball_dans_notre_camp and not is_ball_stuck:
+                    print(">>> MODE DEFENSE")
+                    Remi.defense_passive(robot, ball, zone_def, params["err"],params["vitesse"], 0.3, params["seuil_ball"], role, -cote, 0.2)
+
+                # B. MODE ATTAQUE (Balle immobile OU Hors de notre camp)
+                else:
+                    if elapsed < 30:
+                        print(">>> MODE ATTAQUE 30")
+                        # Les 30 premières secondes
+                        if role == "front":
+                            # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
+                            but_adv = (-0.9 * cote, 0.25 * yposition) 
+                            ##########################remi_obj.attaque(robot, ball, but_adv, offset=0.1)
+                        else:
+                            # Le deuxième reste aux buts
+                            Remi.defense_passive(robot, ball, zone_def, params["err"], params["vitesse"], 0.2, params["seuil_ball"], "back", -cote, 0.2)
+
+                    elif elapsed > 30 and elapsed < 240:
+                        print(">>> MODE ATTAQUE 100")
+                        # Après 30 secondes : Attaque normale
+                        if role == "front":
+                            # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
+                            but_adv = (-0.9 * cote, 0.25 * yposition) 
+                            #########################remi_obj.attaque(robot, ball, but_adv, offset=0.1)
+                        else:
+                            # Le deuxième reste aux buts
+                            Remi.defense_passive(robot, ball, zone_def, params["err"], params["vitesse"], 0.2, params["seuil_ball"], "back", -cote, 0.2)
+                    else:
+                        print(">>> MODE ATTAQUE 240")
+
+            if role == "back":
+                return
             elif self.nb_adv_actifs == 1:
                 try :
                     print(">>> Supériorité numérique")
@@ -95,12 +156,10 @@ class Game:
                     print(f"Erreur robot: {e}")
 
             elif self.nb_adv_actifs == 0:
-                try :
-                    print(">>> Aucun adversaire sur le terrain")
-                    Action.Aucun_adversaire(self.nos_actifs[0],self.nos_actifs[1],self.terrain)
-                except Exception as e:
-                    print(f"Erreur robot: {e}")
-
+                print(">>> Aucun adversaire sur le terrain")
+                Action.Aucun_adversaire(self.nos_actifs[0],self.nos_actifs[1],self.terrain)
+        elif role == "back":
+            return  
         elif self.nb_nos_actifs == 1:
             if self.nb_adv_actifs == 2:
                 try :
@@ -154,12 +213,23 @@ if __name__ == "__main__":
         Formule = formule(client)
 
         print(f"--- DÉBUT DU MATCH ({N_couleur.upper()}) ---")
+        start_time = time.time()
+        ball_last_pos = None
+        ball_stop_timer = 0
+        game.update_info()
+        r1=game.nos_actifs[0]
+        r2=game.nos_actifs[1]
 
         # Fonction que chaque thread va exécuter en boucle
 
         while True:
             try:
-                game.executer_strategie(client.green1)
+                game.update_info()
+                t1 = threading.Thread(target=game.executer_strategie, args=(r1, game.target_def, game.sens_but, client.ball, "front", ball_last_pos, ball_stop_timer), daemon=True)
+                t2 = threading.Thread(target=game.executer_strategie, args=(r2, game.target_def, game.sens_but, client.ball, "back", ball_last_pos, ball_stop_timer), daemon=True)
+
+                t1.start()
+                t2.start()
                 time.sleep(0.05) # Fréquence de rafraîchissement
             except Exception as e:
                 print(f"Erreur sur {client.green1}: {e}")

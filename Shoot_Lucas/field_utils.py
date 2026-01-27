@@ -8,11 +8,11 @@ from rsk import constants
 class FieldUtils:
     """Classe utilitaire pour les calculs géométriques sur le terrain"""
     
-    # Limites du terrain
-    MAX_X = constants.field_length / 2.0
-    MIN_X = -constants.field_length / 2.0
-    MAX_Y = constants.field_width / 2.0
-    MIN_Y = -constants.field_width / 2.0
+    # Limites du terrain (depuis les constantes RSK)
+    MAX_X = constants.field_length / 2.0  # 0.92
+    MIN_X = -constants.field_length / 2.0  # -0.92
+    MAX_Y = constants.field_width / 2.0   # 0.615
+    MIN_Y = -constants.field_width / 2.0  # -0.615
 
     @staticmethod
     def dist(a, b):
@@ -147,7 +147,8 @@ class FieldUtils:
         
         power = config.POWER_PASS_MIN + t * (config.POWER_PASS_MAX - config.POWER_PASS_MIN)
         
-        return max(0.0, min(1.0, power))  # Sécurité : clamp entre 0 et 1
+        # Sécurité : clamp entre 0 et 1
+        return max(0.0, min(1.0, power))
 
     @staticmethod
     def behind_point(ball, goal, distance):
@@ -255,10 +256,12 @@ class FieldUtils:
     def is_in_penalty_area(point, goal_x):
         """
         Vérifie si un point est dans la zone interdite (surface de réparation)
-        La zone RÉELLE est de 0.30m × 0.90m DEVANT les cages (côté terrain)
-        La MARGE est une extension de sécurité pour éviter les violations
         
-        IMPORTANT: La zone est DEVANT le but (vers le terrain), pas derrière !
+        Zone RÉELLE selon les règles RSK:
+        - Profondeur: 0.30m (defense_area_length)
+        - Largeur: 0.90m (defense_area_width)
+        
+        La marge est une petite extension de sécurité pour éviter les violations.
         
         Args:
             point: Tuple (x, y) à vérifier
@@ -269,29 +272,22 @@ class FieldUtils:
         """
         from config import PENALTY_AREA_DEPTH, PENALTY_AREA_WIDTH, PENALTY_AREA_MARGIN
         
-        # La zone TOTALE = zone réglementaire + marge de sécurité
+        # Profondeur totale avec marge
         total_depth = PENALTY_AREA_DEPTH + PENALTY_AREA_MARGIN
-        total_width = PENALTY_AREA_WIDTH + 2 * PENALTY_AREA_MARGIN
         
-        # CORRECTION: La zone s'étend DEPUIS le but VERS le terrain
+        # Demi-largeur totale avec marge (marge appliquée de chaque côté)
+        half_width = (PENALTY_AREA_WIDTH / 2.0) + PENALTY_AREA_MARGIN
+        
+        # Calcul de la zone en X
         if goal_x < 0:
-            # But à GAUCHE (X négatif)
-            # Zone: du bord gauche (MIN_X) jusqu'à (MIN_X + depth)
-            # Un point est dans la zone si: MIN_X <= X <= MIN_X + depth
-            zone_start = FieldUtils.MIN_X
-            zone_end = FieldUtils.MIN_X + total_depth
-            in_x_range = zone_start <= point[0] <= zone_end
+            # But à GAUCHE : zone de X_MIN à X_MIN + profondeur
+            in_x_range = FieldUtils.MIN_X <= point[0] <= (FieldUtils.MIN_X + total_depth)
         else:
-            # But à DROITE (X positif)
-            # Zone: de (MAX_X - depth) jusqu'au bord droit (MAX_X)
-            # Un point est dans la zone si: MAX_X - depth <= X <= MAX_X
-            zone_start = FieldUtils.MAX_X - total_depth
-            zone_end = FieldUtils.MAX_X
-            in_x_range = zone_start <= point[0] <= zone_end
+            # But à DROITE : zone de X_MAX - profondeur à X_MAX
+            in_x_range = (FieldUtils.MAX_X - total_depth) <= point[0] <= FieldUtils.MAX_X
         
-        # Limites en Y (centrées sur 0)
-        y_half_width = total_width / 2.0
-        in_y_range = -y_half_width <= point[1] <= y_half_width
+        # Calcul de la zone en Y (centrée sur 0)
+        in_y_range = -half_width <= point[1] <= half_width
         
         return in_x_range and in_y_range
     
@@ -299,7 +295,8 @@ class FieldUtils:
     def get_safe_position_outside_penalty(point, goal_x):
         """
         Si un point est dans la zone interdite, retourne le point le plus proche à l'extérieur
-        AVEC UNE MARGE SUPPLÉMENTAIRE de sécurité
+        
+        Stratégie: sortir par le chemin le plus court (X ou Y)
         
         Args:
             point: Tuple (x, y) potentiellement dans la zone
@@ -315,38 +312,44 @@ class FieldUtils:
         
         x, y = point
         total_depth = PENALTY_AREA_DEPTH + PENALTY_AREA_MARGIN
-        total_width = PENALTY_AREA_WIDTH + 2 * PENALTY_AREA_MARGIN
+        half_width = (PENALTY_AREA_WIDTH / 2.0) + PENALTY_AREA_MARGIN
         
-        # MARGE SUPPLÉMENTAIRE pour sortir vraiment de la zone
-        EXTRA_SAFETY = 0.10  # 10cm de plus
+        # Marge supplémentaire pour vraiment sortir de la zone
+        EXTRA_SAFETY = 0.05  # 5cm
         
-        # Déterminer les limites de la zone
+        # Calculer la distance pour sortir par X vs par Y
         if goal_x < 0:
-            # But à gauche : pousser vers la droite (X positif)
+            # But à gauche : sortir vers la droite
             x_boundary = FieldUtils.MIN_X + total_depth
-            safe_x = x_boundary + EXTRA_SAFETY
+            dist_to_exit_x = x_boundary - x + EXTRA_SAFETY
         else:
-            # But à droite : pousser vers la gauche (X négatif)
+            # But à droite : sortir vers la gauche
             x_boundary = FieldUtils.MAX_X - total_depth
-            safe_x = x_boundary - EXTRA_SAFETY
+            dist_to_exit_x = x - x_boundary + EXTRA_SAFETY
         
-        y_half_width = total_width / 2.0
+        # Distance pour sortir par Y (vers le haut ou le bas)
+        if y >= 0:
+            dist_to_exit_y = half_width - y + EXTRA_SAFETY
+        else:
+            dist_to_exit_y = half_width + y + EXTRA_SAFETY
         
-        # Stratégie en Y : sortir par le côté le plus proche
-        if abs(y) > y_half_width:
-            # Déjà hors de la zone en Y
+        # Choisir la sortie la plus courte
+        if dist_to_exit_x <= dist_to_exit_y:
+            # Sortir par X
+            if goal_x < 0:
+                safe_x = x_boundary + EXTRA_SAFETY
+            else:
+                safe_x = x_boundary - EXTRA_SAFETY
             safe_y = y
         else:
-            # Pousser vers le bord le plus proche en Y
-            if abs(y) < 0.1:
-                # Très proche du centre : pousser vers le haut
-                safe_y = y_half_width + EXTRA_SAFETY
-            elif y > 0:
-                safe_y = y_half_width + EXTRA_SAFETY
+            # Sortir par Y
+            safe_x = x
+            if y >= 0:
+                safe_y = half_width + EXTRA_SAFETY
             else:
-                safe_y = -y_half_width - EXTRA_SAFETY
+                safe_y = -half_width - EXTRA_SAFETY
         
         # Clamp pour rester dans le terrain
-        safe_pos = FieldUtils.clamp((safe_x, safe_y), margin=0.05)
+        safe_pos = FieldUtils.clamp((safe_x, safe_y), margin=0.02)
         
         return safe_pos

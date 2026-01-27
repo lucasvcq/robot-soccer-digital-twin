@@ -4,6 +4,7 @@ Gère le déplacement vers la balle avec évitement intelligent
 """
 import time
 import math
+from rsk.client import ClientError  # AJOUT : Pour gérer les préemptions
 from field_utils import FieldUtils
 from around_planner import AroundPlanner
 import config

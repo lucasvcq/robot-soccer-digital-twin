@@ -25,6 +25,18 @@ LOOP_DT = 0.05
 MIN_DISTANCE_TO_GOAL = 0.45  # 45cm minimum
 
 # ============================================================================
+# MODE RAPIDE (Éviter pénalité 3s près de la balle)
+# ============================================================================
+
+# Activer le mode rapide (moins précis mais plus rapide)
+FAST_MODE = True
+
+# En mode rapide, tolérances assouplies
+FAST_CAPTURE_DISTANCE = 0.18   # Au lieu de 0.13 (plus tolérant)
+FAST_ANGLE_TOL = math.radians(15)  # Au lieu de 8° (moins précis)
+FAST_ARRIVAL_THRESH = 0.08  # Au lieu de 0.05 (arrivée plus rapide)
+
+# ============================================================================
 # PARAMÈTRES DE CHANGEMENT D'ACTEUR
 # ============================================================================
 
@@ -110,23 +122,29 @@ SUPPORT_LATERAL_OFFSET = 0.30
 # PARAMÈTRES DE PUISSANCE
 # ============================================================================
 
-# Puissance maximale pour un tir au but
-POWER_SHOOT = 1.0
+# Puissance des tirs
+POWER_SHOOT = 1.0         # Frappe au but (Max)
 
-# Puissance pour une passe (dosée)
-POWER_PASS = 0.6
+# Puissance de passe (ADAPTATIVE selon la distance)
+POWER_PASS_MIN = 0.50     # Puissance minimale pour passe courte (< 0.5m)
+POWER_PASS_MAX = 0.95     # Puissance maximale pour passe longue (> 1.5m)
+PASS_DISTANCE_MIN = 0.30  # Distance minimale pour calibration (m)
+PASS_DISTANCE_MAX = 1.50  # Distance maximale pour calibration (m)
 
 # ============================================================================
 # PARAMÈTRES DU TERRAIN
 # ============================================================================
 
 # Position X du but adverse (à ajuster selon le côté)
-# -1.83/2 pour attaquer vers la gauche
-# +1.83/2 pour attaquer vers la droite
-GOAL_X = -1.83 / 2
+# -1.84/2 pour attaquer vers la gauche
+# +1.84/2 pour attaquer vers la droite
+GOAL_X = -1.84 / 2
 
 # Position complète du but (X, Y)
 GOAL_POSITION = (GOAL_X, 0.0)
+
+# Notre but (à défendre) - opposé du but adverse    ← AJOUTER CETTE LIGNE
+OUR_GOAL_POSITION = (-GOAL_X, 0.0)  
 
 # ============================================================================
 # ZONES INTERDITES (Surface de réparation)
@@ -138,7 +156,7 @@ PENALTY_AREA_WIDTH = 0.90   # Largeur de la zone (90cm)
 
 # Marge de sécurité pour éviter d'entrer dans la zone
 # AUGMENTÉE pour plus de prudence
-PENALTY_AREA_MARGIN = 0.15  # 10cm de marge (au lieu de 5cm)
+PENALTY_AREA_MARGIN = 0.05  # 10cm de marge (au lieu de 5cm)
 
 # ============================================================================
 # PARAMÈTRES DE DEBUG
@@ -148,7 +166,7 @@ PENALTY_AREA_MARGIN = 0.15  # 10cm de marge (au lieu de 5cm)
 DEBUG_VERBOSE = False
 
 # Afficher les décisions stratégiques
-DEBUG_STRATEGY = False
+DEBUG_STRATEGY = False  # CORRECTION : Désactivé par défaut pour moins de spam
 
 # Afficher les informations de navigation
 DEBUG_NAVIGATION = False

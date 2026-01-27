@@ -113,6 +113,16 @@ class SimpleShooter:
         rpos = self.robot.position
         rtheta = self.robot.orientation
         
+        # NOUVEAU: Vérifier si le robot est dans la zone interdite
+        if FieldUtils.is_in_penalty_area(rpos, target[0]):
+            safe_pos = FieldUtils.get_safe_position_outside_penalty(rpos, target[0])
+            angle_away = FieldUtils.angle(rpos, safe_pos)
+            try:
+                self.robot.goto((safe_pos[0], safe_pos[1], angle_away), wait=False)
+            except rsk.ClientError:
+                pass
+            return False
+        
         # 1. Navigation vers la balle
         is_in_zone = aller_derriere_balle(self.robot, ball, target, self.nav_state)
         
@@ -120,35 +130,61 @@ class SimpleShooter:
             return False
         
         # 2. Orientation vers la cible
+        # CORRECTION: Utiliser les tolérances adaptées au mode
+        angle_tol = config.FAST_ANGLE_TOL if config.FAST_MODE else config.ANGLE_TOL
+        capture_dist = config.FAST_CAPTURE_DISTANCE if config.FAST_MODE else config.CAPTURE_DISTANCE
+        
         desired_theta = FieldUtils.angle(rpos, target)
         ang_err = FieldUtils.wrap(desired_theta - rtheta)
         
-        if abs(ang_err) > config.ANGLE_TOL:
-            self.robot.goto((rpos[0], rpos[1], desired_theta), wait=True)
-            return False
+        if abs(ang_err) > angle_tol:
+            try:
+                # En mode rapide, wait=False pour ne pas bloquer
+                wait_for_turn = not config.FAST_MODE
+                self.robot.goto((rpos[0], rpos[1], desired_theta), wait=wait_for_turn)
+            except rsk.ClientError:
+                pass
+            # En mode rapide, on continue sans attendre
+            if not config.FAST_MODE:
+                return False
         
         # 3. Tir
         d_to_ball = FieldUtils.dist(rpos, ball)
         
         # Approche finale
-        if d_to_ball > config.CAPTURE_DISTANCE:
+        if d_to_ball > capture_dist:
             u_rg = FieldUtils.unit_vector(rpos, target)
-            target_pos = (
-                ball[0] - u_rg[0] * 0.02,
-                ball[1] - u_rg[1] * 0.02,
-                desired_theta
-            )
-            self.robot.goto(target_pos, wait=True)
+            
+            # En mode rapide, on vise directement la balle
+            if config.FAST_MODE:
+                target_pos = (ball[0], ball[1], desired_theta)
+            else:
+                target_pos = (
+                    ball[0] - u_rg[0] * 0.02,
+                    ball[1] - u_rg[1] * 0.02,
+                    desired_theta
+                )
+            
+            # Vérifier que la position d'approche n'est pas dans la zone interdite
+            if FieldUtils.is_in_penalty_area(target_pos[:2], target[0]):
+                return False
+            
+            try:
+                # En mode rapide, wait=False
+                self.robot.goto(target_pos, wait=not config.FAST_MODE)
+            except rsk.ClientError:
+                pass
             return False
         
         # Tir final
-        if d_to_ball <= config.CAPTURE_DISTANCE and abs(ang_err) <= config.ANGLE_TOL:
+        if d_to_ball <= capture_dist and abs(ang_err) <= angle_tol:
             try:
                 self.robot.kick(power=self.kick_power)
                 self.nav_state.reset()
                 return True
             except rsk.ClientError as e:
-                print(f"Erreur kick: {e}")
+                if config.DEBUG_VERBOSE:
+                    print(f"Erreur kick: {e}")
                 return False
         
         return False

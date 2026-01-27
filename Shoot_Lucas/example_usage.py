@@ -269,11 +269,11 @@ if __name__ == "__main__":
     
     # Décommentez l'exemple que vous voulez tester :
     
-    exemple_1_ultra_simple()
-    # exemple_2_avec_classe()
-    # exemple_3_cible_personnalisee()
-    # exemple_4_non_bloquant()
-    # exemple_5_integration_strategie()
-    # exemple_6_navigation_personnalisee()
-    # exemple_7_plusieurs_tirs()
-    # exemple_8_match_complet()
+    #exemple_1_ultra_simple()
+    #exemple_2_avec_classe()
+    exemple_3_cible_personnalisee()
+    #exemple_4_non_bloquant()
+    #exemple_5_integration_strategie()
+    #exemple_6_navigation_personnalisee()
+    #exemple_7_plusieurs_tirs()
+    #exemple_8_match_complet()

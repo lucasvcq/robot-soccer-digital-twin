@@ -100,10 +100,9 @@ class DecisionEngine:
         
         # 1. Position X : Le plus proche du but possible
         # On part du but et on recule juste assez pour être hors zone
-        from config import PENALTY_AREA_DEPTH, PENALTY_AREA_MARGIN
         
         # Distance minimale sûre du but (zone interdite + marge + offset de passe)
-        safe_distance_from_goal = PENALTY_AREA_DEPTH + PENALTY_AREA_MARGIN + 0.15
+        safe_distance_from_goal = config.PENALTY_AREA_DEPTH + config.PENALTY_AREA_MARGIN + 0.15
         
         # Position X cible : juste après la zone interdite
         if self.sens_jeu > 0:
@@ -146,8 +145,7 @@ class DecisionEngine:
         # 4. Debug (optionnel)
         if config.DEBUG_STRATEGY:
             dist_to_goal = FieldUtils.dist(pass_target, self.goal)
-            print(f"[Decision] Passe → ({pass_target[0]:+.2f}, {pass_target[1]:+.2f}) "
-                  f"Dist_but: {dist_to_goal:.2f}m", end='\r')
+            print(f"[Pass Target] X:{pass_target[0]:+.2f} Y:{pass_target[1]:+.2f} Dist_but:{dist_to_goal:.2f}m")
         
         return pass_target
     
