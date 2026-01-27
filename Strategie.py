@@ -88,34 +88,49 @@ class Game:
                 Remi.controle_robot(Action, robot, "1", game, params["vitesse"], params["err"], 0.3, params["seuil_ball"], "front", params["start_time"])
             
             elif self.nb_adv_actifs == 1:
-                print(">>> Supériorité numérique")
-                Action.supériorité_numérique(self.nos_actifs[0],self.nos_actifs[1],self.adv_penalises[0],self.terrain,self.target_def)
+                try :
+                    print(">>> Supériorité numérique")
+                    Action.supériorité_numérique(self.nos_actifs[0],self.nos_actifs[1],self.adv_penalises[0],self.terrain,self.target_def)
+                except Exception as e:
+                    print(f"Erreur robot: {e}")
 
             elif self.nb_adv_actifs == 0:
-                print(">>> Aucun adversaire sur le terrain")
-                Action.Aucun_adversaire(self.nos_actifs[0],self.nos_actifs[1],self.terrain)
-                
+                try :
+                    print(">>> Aucun adversaire sur le terrain")
+                    Action.Aucun_adversaire(self.nos_actifs[0],self.nos_actifs[1],self.terrain)
+                except Exception as e:
+                    print(f"Erreur robot: {e}")
+
         elif self.nb_nos_actifs == 1:
             if self.nb_adv_actifs == 2:
-                print(">>> 1 vs 2 : Infériorité numérique")
-                N_robot = self.nos_actifs[0]
-                Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"front",time.time(),0.2)
+                try :
+                    print(">>> 1 vs 2 : Infériorité numérique")
+                    N_robot = self.nos_actifs[0]
+                    Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"front",time.time(),0.2)
+                except Exception as e:
+                    print(f"Erreur robot: {e}")
 
             elif self.nb_adv_actifs == 1:
-                print(">>> 1 vs 1 : Match réduit")
-                N_robot = self.nos_actifs[0]
-                A_robot = self.adv_actifs[0]
-                N = Formule.distance_ball(N_robot) # Notre robot
-                A = Formule.distance_ball(A_robot) # Robot adverse
-                if A > N : 
-                    Action.Tire_vers_le_but(N_robot,self.terrain)
-                else : 
-                    Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"front",time.time(),0.2)
+                try :
+                    print(">>> 1 vs 1 : Match réduit")
+                    N_robot = self.nos_actifs[0]
+                    A_robot = self.adv_actifs[0]
+                    N = Formule.distance_ball(N_robot) # Notre robot
+                    A = Formule.distance_ball(A_robot) # Robot adverse
+                    if A > N : 
+                        Action.Tire_vers_le_but(N_robot,self.terrain)
+                    else : 
+                        Remi.defense_passive(N_robot,self.client.ball, self.target_def, 0.05,3.0,0.3,0.15,"front",time.time(),0.2)
+                except Exception as e:
+                    print(f"Erreur robot: {e}")
 
-            elif self.nb_adv_actifs == 0: 
-                print(">>> Aucun adversaire sur le terrain")
-                N_robot = self.nos_actifs[0] 
-                Action.Tire_vers_le_but(N_robot, self.terrain)
+            elif self.nb_adv_actifs == 0:
+                try :  
+                    print(">>> Aucun adversaire sur le terrain")
+                    N_robot = self.nos_actifs[0] 
+                    Action.Tire_vers_le_but(N_robot, self.terrain)
+                except Exception as e:
+                    print(f"Erreur robot: {e}")
 
 def choisir_couleur():
     while True:
