@@ -19,7 +19,7 @@ from field_utils import FieldUtils
 from referee_manager import RefereeManager
 import config
 
-class DefenseCorrected:
+class Defense:
     """Défense corrigée selon vos spécifications exactes"""
     
     # Constantes importantes
@@ -295,7 +295,7 @@ def main():
     print("="*60 + "\n")
     
     with rsk.Client() as client:
-        defense = DefenseCorrected(client)
+        defense = Defense(client)
         
         # CONFIGURATION (depuis config.py)
         our_goal = config.OUR_GOAL_POSITION  # Notre but à défendre

@@ -287,27 +287,10 @@ class formule:
                 print("Balle arrêtée ou trop lente, arrêt du suivi.")
                 break
 
-            ball_pos = self.client.ball
-            P_receveur = robot.position
+            B = self.client.ball
+            O = self.Angle_but(terrain)
 
-            # Calcul du vecteur Robot -> Balle
-            dx = ball_pos[0] - P_receveur[0]
-            dy = ball_pos[1] - P_receveur[1]
-            norme = math.sqrt(dx**2 + dy**2)
-
-            if norme > 0:
-                ux = dx / norme
-                uy = dy / norme
-
-                # Cible : 1 cm derrière la balle
-                dist_cible = 0.3
-                x_dest = ball_pos[0] - dist_cible * ux
-                y_dest = ball_pos[1] - dist_cible * uy
-                O = self.Angle_but(terrain) - math.pi
-
-                # Mise à jour de la destination
-                robot.goto((x_dest, y_dest, O), wait=False)
-
+            robot.goto((-0.3,B[1],O-pi),wait = True)
             time.sleep(0.05)  # Pause pour éviter la surcharge
 
     def vitesse_ball(self):
