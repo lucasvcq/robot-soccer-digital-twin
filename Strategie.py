@@ -1,3 +1,10 @@
+import sys
+import os
+
+# On calcule le chemin du dossier Shoot_Lucas
+dossier_lucas = os.path.join(os.getcwd(), "Shoot_Lucas")
+# On l'ajoute à la liste des endroits où Python cherche les modules
+sys.path.append(dossier_lucas)
 print("1")
 import rsk
 from math import sqrt
@@ -9,6 +16,7 @@ from Jules_Execute import action
 print("4")
 from Jules import formule
 print("5")
+from Shoot_Lucas.simple_shooter import SimpleShooter
 class Game:
     def __init__(self, client, color):
         self.client = client
@@ -115,6 +123,15 @@ class Game:
                 else:
                     yposition=-1
 
+                if robot==client.green1:
+                    shooter=shooter1
+                elif robot==client.green2:
+                    shooter=shooter2
+                elif robot==client.blue1:
+                    shooter=shooter3
+                elif robot==client.blue2:
+                    shooter=shooter4
+
                 # A. MODE DEFENSE (Balle dans notre camp)
                 if ball_dans_notre_camp and not is_ball_stuck:
                     print(">>> MODE DEFENSE")
@@ -127,11 +144,10 @@ class Game:
                         # Les 30 premières secondes
                         if role == "front":
                             # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
-                            but_adv = (-0.9 * cote, 0.25 * yposition) 
-                            ##########################remi_obj.attaque(robot, ball, but_adv, offset=0.1)
+                            but_adv = (0.9 * cote, 0.25 * yposition) 
+                            shooter.shoot_at(client.ball, target=but_adv, power=1, wait_for_kick= None)
                         else:
                             # Le deuxième reste aux buts
-
                             Remi.defense_passive(robot, ball, zone_def, params["err"], params["vitesse"], 0.2, params["seuil_ball"], "back", -cote, 0.2)
 
                     elif elapsed > 30 and elapsed < 240:
@@ -139,28 +155,45 @@ class Game:
                         # Après 30 secondes : Attaque normale
                         if role == "front":
                             # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
-                            but_adv = (-0.9 * cote, 0.25 * yposition) 
-                            #########################remi_obj.attaque(robot, ball, but_adv, offset=0.1)
+                            but_adv = (0.9 * cote, 0.25 * yposition) 
+                            shooter.shoot_at(client.ball, target=but_adv, power=1, wait_for_kick= None)
                         else:
                             # Le deuxième reste aux buts
                             Remi.defense_passive(robot, ball, zone_def, params["err"], params["vitesse"], 0.2, params["seuil_ball"], "back", -cote, 0.2)
                     else:
                         print(">>> MODE ATTAQUE 240")
+                        if role == "front":
+                            # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
+                            but_adv = (0.9 * cote, 0.25 * yposition) 
+                            shooter.shoot_at(client.ball, target=but_adv, power=1, wait_for_kick= None)
+                        else:
+                            # Le deuxième reste aux buts
+                            Remi.defense_passive(robot, ball, zone_def, params["err"], params["vitesse"], 0.2, params["seuil_ball"], "back", -cote, 0.2)
 
-            if role == "back":
                 return
             elif self.nb_adv_actifs == 1:
-                try :
-                    print(">>> Supériorité numérique")
-                    Action.supériorité_numérique(self.nos_actifs[0],self.nos_actifs[1],self.adv_penalises[0],self.terrain,self.target_def)
-                except Exception as e:
-                    print(f"Erreur robot: {e}")
+                print(">>> Supériorité numérique")
+                if role == "front":
+                    # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
+                    but_adv = (0.9 * cote, 0.25 * yposition) 
+                    shooter.shoot_at(client.ball, target=but_adv, power=1, wait_for_kick= None)
+                else:
+                    # Le deuxième reste aux buts
+                    Remi.defense_passive(robot, ball, zone_def, params["err"], params["vitesse"], 0.2, params["seuil_ball"], "back", -cote, 0.2)
 
             elif self.nb_adv_actifs == 0:
                 print(">>> Aucun adversaire sur le terrain")
-                Action.Aucun_adversaire(self.nos_actifs[0],self.nos_actifs[1],self.terrain)
+                if role == "front":
+                    # Tir premier poteau (y = 0.3 ou -0.3 selon le côté)
+                    but_adv = (0.9 * cote, 0.25 * yposition) 
+                    shooter.shoot_at(client.ball, target=but_adv, power=1, wait_for_kick= None)
+                else:
+                    # Le deuxième reste aux buts
+                    Remi.defense_passive(robot, ball, zone_def, params["err"], params["vitesse"], 0.2, params["seuil_ball"], "back", -cote, 0.2)
+
         elif role == "back":
             return  
+
         elif self.nb_nos_actifs == 1:
             if self.nb_adv_actifs == 2:
                 try :
@@ -212,6 +245,11 @@ if __name__ == "__main__":
         Remi = remi(client)
         Action = action(client)
         Formule = formule(client)
+        shooter1 = SimpleShooter(client.green1)
+        shooter2 = SimpleShooter(client.green2)
+        shooter3 = SimpleShooter(client.blue1)
+        shooter4 = SimpleShooter(client.blue2)
+
 
         print(f"--- DÉBUT DU MATCH ({N_couleur.upper()}) ---")
         start_time = time.time()
