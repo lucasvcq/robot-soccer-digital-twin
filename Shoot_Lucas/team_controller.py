@@ -1,6 +1,7 @@
 """
-Contrôleur d'équipe
+Contrôleur d'équipe - VERSION FLEXIBLE
 Orchestre les deux robots et coordonne leurs actions
+SUPPORT ÉQUIPES GREEN ET BLUE
 """
 import time
 from typing import Tuple
@@ -15,30 +16,53 @@ class TeamController:
     """
     Contrôleur principal pour l'équipe de robots
     Gère la coordination entre les deux robots
+    VERSION FLEXIBLE : Supporte green ET blue
     """
     
-    def __init__(self, client, goal: Tuple[float, float]):
+    def __init__(self, client, goal: Tuple[float, float], team_color: str = "green"):
         """
         Args:
             client: Instance du client RSK
             goal: Position (x, y) du but adverse
+            team_color: Couleur de l'équipe ("green" ou "blue")
         """
         self.client = client
         self.goal = goal
+        self.team_color = team_color
+        
+        # Récupérer les robots selon la couleur
+        if team_color == "green":
+            self.robot1 = client.green1
+            self.robot2 = client.green2
+        else:  # blue
+            self.robot1 = client.blue1
+            self.robot2 = client.blue2
         
         # Création des agents
-        self.agent1 = RobotAgent(client.green1, goal, "Green1")
-        self.agent2 = RobotAgent(client.green2, goal, "Green2")
+        self.agent1 = RobotAgent(self.robot1, goal, f"{team_color.capitalize()}1")
+        self.agent2 = RobotAgent(self.robot2, goal, f"{team_color.capitalize()}2")
         
         # Moteur de décision
         self.engine = DecisionEngine(goal)
         
-        # NOUVEAU : Gestionnaire d'arbitre
-        self.referee = RefereeManager(client, team_color="green")
+        # Gestionnaire d'arbitre
+        self.referee = RefereeManager(client, team_color=team_color)
         
         # Statistiques
         self.total_shots = 0
         self.total_passes = 0
+    
+    def set_goal(self, new_goal: Tuple[float, float]):
+        """
+        Met à jour le but adverse (utile pour la mi-temps)
+        
+        Args:
+            new_goal: Nouvelle position du but adverse
+        """
+        self.goal = new_goal
+        self.agent1.set_target(new_goal)
+        self.agent2.set_target(new_goal)
+        self.engine.goal = new_goal
     
     def update(self) -> bool:
         """
@@ -47,30 +71,29 @@ class TeamController:
         Returns:
             bool: True si un tir a été effectué, False sinon
         """
-        # NOUVEAU : Vérifier si le jeu est en cours
+        # Vérifier si le jeu tourne
         if not self.referee.is_game_running():
             return False
         
-        # 1. Création de l'état du jeu
+        # Création de l'état du jeu
         state = GameState.from_client(self.client, self.goal)
         
         # Vérification de validité
         if not state.is_valid():
             return False
         
-        # NOUVEAU : Vérification des contrôles des robots
+        # Vérification des contrôles des robots
         can_control_r1 = self.referee.can_control_robot("1")
         can_control_r2 = self.referee.can_control_robot("2")
         
         if not can_control_r1 and not can_control_r2:
-            # Aucun robot contrôlable
             return False
         
-        # NOUVEAU : Vérification d'urgence des zones interdites ET des règles de l'arbitre
+        # Vérification d'urgence des zones interdites
         self._check_penalty_area_violations(state)
         self._check_referee_rules(state)
         
-        # 2. Identification des rôles
+        # Identification des rôles
         attacker_id = state.closest_robot
         receiver_id = 2 if attacker_id == 1 else 1
         
@@ -81,10 +104,10 @@ class TeamController:
         attacker = self.agent1 if attacker_id == 1 else self.agent2
         receiver = self.agent2 if attacker_id == 1 else self.agent1
         
-        # 3. Décision tactique
+        # Décision tactique
         action = self.engine.decide(state, attacker_id)
         
-        # 4. Exécution de l'action
+        # Exécution de l'action
         kick_happened = False
         
         if action == Action.PASS:
@@ -102,7 +125,6 @@ class TeamController:
     def _check_referee_rules(self, state: GameState):
         """
         Vérifie les règles de l'arbitre et fait reculer les robots si nécessaire
-        AMÉLIORATION : Recul sans rotation (plus rapide)
         
         Args:
             state: État actuel du jeu
@@ -116,21 +138,18 @@ class TeamController:
             if self.referee.check_ball_abuse("1", state.robot1_pos, state.ball):
                 if self.referee.should_retreat_from_ball("1", state.robot1_pos, state.ball):
                     retreat_pos = self.referee.get_retreat_position(state.robot1_pos, state.ball)
-                    
-                    # AMÉLIORATION : Garder l'orientation actuelle (pas de rotation)
-                    # On recule simplement en ligne droite
                     current_angle = state.robot1_theta
                     
                     print(f"[Referee] Robot 1 recule pour éviter abus de balle (35cm)")
                     try:
-                        self.client.green1.goto((retreat_pos[0], retreat_pos[1], current_angle), wait=False)
+                        self.robot1.goto((retreat_pos[0], retreat_pos[1], current_angle), wait=False)
                     except:
                         pass
                     self.agent1.reset_navigation()
             
             # Zone de défense (notre zone)
             if self.referee.check_defending_area_abuse(state.robot1_pos, our_goal_x):
-                print(f"[Referee] ⚠️  Robot 1 dans SA zone de défense (risque pénalité)")
+                print(f"[Referee] ⚠️ Robot 1 dans SA zone de défense (risque pénalité)")
         
         # Vérification Robot 2
         if self.referee.can_control_robot("2"):
@@ -138,20 +157,18 @@ class TeamController:
             if self.referee.check_ball_abuse("2", state.robot2_pos, state.ball):
                 if self.referee.should_retreat_from_ball("2", state.robot2_pos, state.ball):
                     retreat_pos = self.referee.get_retreat_position(state.robot2_pos, state.ball)
-                    
-                    # AMÉLIORATION : Garder l'orientation actuelle (pas de rotation)
                     current_angle = state.robot2_theta
                     
                     print(f"[Referee] Robot 2 recule pour éviter abus de balle (35cm)")
                     try:
-                        self.client.green2.goto((retreat_pos[0], retreat_pos[1], current_angle), wait=False)
+                        self.robot2.goto((retreat_pos[0], retreat_pos[1], current_angle), wait=False)
                     except:
                         pass
                     self.agent2.reset_navigation()
             
             # Zone de défense (notre zone)
             if self.referee.check_defending_area_abuse(state.robot2_pos, our_goal_x):
-                print(f"[Referee] ⚠️  Robot 2 dans SA zone de défense (risque pénalité)")
+                print(f"[Referee] ⚠️ Robot 2 dans SA zone de défense (risque pénalité)")
     
     def _check_penalty_area_violations(self, state: GameState):
         """
@@ -164,20 +181,20 @@ class TeamController:
         if FieldUtils.is_in_penalty_area(state.robot1_pos, self.goal[0]):
             safe_pos = FieldUtils.get_safe_position_outside_penalty(state.robot1_pos, self.goal[0])
             angle = FieldUtils.angle(state.robot1_pos, safe_pos)
-            print(f"\n⚠️  [Green1] SORTIE D'URGENCE de la zone interdite!")
+            print(f"\n⚠️ [{self.team_color.capitalize()}1] SORTIE D'URGENCE de la zone interdite!")
             print(f"   Position actuelle: ({state.robot1_pos[0]:.3f}, {state.robot1_pos[1]:.3f})")
             print(f"   Position sûre: ({safe_pos[0]:.3f}, {safe_pos[1]:.3f})")
-            self.client.green1.goto((safe_pos[0], safe_pos[1], angle), wait=False)
+            self.robot1.goto((safe_pos[0], safe_pos[1], angle), wait=False)
             self.agent1.reset_navigation()
         
         # Vérifier robot 2
         if FieldUtils.is_in_penalty_area(state.robot2_pos, self.goal[0]):
             safe_pos = FieldUtils.get_safe_position_outside_penalty(state.robot2_pos, self.goal[0])
             angle = FieldUtils.angle(state.robot2_pos, safe_pos)
-            print(f"\n⚠️  [Green2] SORTIE D'URGENCE de la zone interdite!")
+            print(f"\n⚠️ [{self.team_color.capitalize()}2] SORTIE D'URGENCE de la zone interdite!")
             print(f"   Position actuelle: ({state.robot2_pos[0]:.3f}, {state.robot2_pos[1]:.3f})")
             print(f"   Position sûre: ({safe_pos[0]:.3f}, {safe_pos[1]:.3f})")
-            self.client.green2.goto((safe_pos[0], safe_pos[1], angle), wait=False)
+            self.robot2.goto((safe_pos[0], safe_pos[1], angle), wait=False)
             self.agent2.reset_navigation()
     
     def _execute_pass(self, state: GameState, attacker: RobotAgent, 
@@ -199,7 +216,7 @@ class TeamController:
             state.ball
         )
         
-        # NOUVEAU : Calcul de la puissance adaptée à la distance
+        # Calcul de la puissance adaptée à la distance
         distance_to_receiver = FieldUtils.dist(attacker.robot.position, pass_target)
         pass_power = FieldUtils.compute_pass_power(distance_to_receiver)
         
@@ -264,7 +281,7 @@ class TeamController:
     def print_stats(self):
         """Affiche les statistiques du match"""
         print(f"\n{'='*50}")
-        print(f"📊 STATISTIQUES")
+        print(f"📊 STATISTIQUES - {self.team_color.upper()}")
         print(f"{'='*50}")
         print(f"🎯 Tirs au but : {self.total_shots}")
         print(f"🤝 Passes      : {self.total_passes}")

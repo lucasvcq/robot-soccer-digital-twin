@@ -18,8 +18,9 @@ from enum import Enum
 from field_utils import FieldUtils
 from game_state import GameState
 from referee_manager import RefereeManager
-from defense_corrected import DefenseCorrected  # MODIFIÉ : Utilise la version corrigée
+from defense_corrected import DefenseCorrected
 from team_controller import TeamController
+from team_manager import TeamManager, choose_team_interactive
 import config
 
 
@@ -41,21 +42,25 @@ class GameMode(Enum):
 class StrategyController:
     """Contrôleur de stratégie complète"""
     
-    def __init__(self, client, our_goal: Tuple[float, float], opponent_goal: Tuple[float, float]):
+    def __init__(self, client, team_manager: TeamManager):
         """
         Args:
             client: Client RSK
-            our_goal: Notre but (à défendre)
-            opponent_goal: But adverse (à attaquer)
+            team_manager: Gestionnaire d'équipe (gère couleur et mi-temps)
         """
         self.client = client
-        self.our_goal = our_goal
-        self.opponent_goal = opponent_goal
+        self.team_manager = team_manager
+        
+        # Récupérer les buts actuels depuis le team_manager
+        self.our_goal, self.opponent_goal = team_manager.get_current_goals()
+        
+        # Récupérer nos robots
+        self.robot1, self.robot2 = team_manager.get_robots(client)
         
         # Contrôleurs spécialisés
-        self.defense = DefenseCorrected(client)  # MODIFIÉ : Version corrigée
-        self.attack = TeamController(client, opponent_goal)
-        self.referee = RefereeManager(client, team_color="green")
+        self.defense = DefenseCorrected(client)
+        self.attack = TeamController(client, self.opponent_goal, team_manager.team_color)
+        self.referee = RefereeManager(client, team_color=team_manager.team_color)
         
         # État du jeu
         self.game_start_time = None
@@ -68,7 +73,7 @@ class StrategyController:
         # Paramètres défense
         self.defense_config = {
             'vitesse': 4,
-            'zone_defense': our_goal,
+            'zone_defense': self.our_goal,  # Utiliser self.our_goal
             'erreur_placement': 0.04,
             'marge_front': 0.3,
             'marge_back': 0.2,
@@ -90,6 +95,19 @@ class StrategyController:
         Returns:
             bool: True si une action importante a été effectuée
         """
+        # NOUVEAU : Vérifier la mi-temps
+        if self.team_manager.check_halftime(self.client):
+            # Mi-temps terminée : mise à jour des buts
+            self.our_goal, self.opponent_goal = self.team_manager.get_current_goals()
+            
+            # Mettre à jour l'attaque avec le nouveau but
+            self.attack.set_goal(self.opponent_goal)
+            
+            # Mettre à jour la config de défense avec le nouveau but
+            self.defense_config['zone_defense'] = self.our_goal
+            
+            print("🔄 Buts mis à jour pour la 2ème mi-temps !")
+        
         # Vérifier si le jeu tourne
         if not self.referee.is_game_running():
             return False
@@ -320,7 +338,7 @@ class StrategyController:
         if self.referee.can_control_robot("1"):
             try:
                 self.defense.defense_front_harasser(
-                    self.client.green1, state.ball, cfg['zone_defense'],
+                    self.robot1, state.ball, cfg['zone_defense'],
                     cfg['vitesse']
                 )
             except:
@@ -330,7 +348,7 @@ class StrategyController:
         if self.referee.can_control_robot("2"):
             try:
                 self.defense.defense_back_goalkeeper(
-                    self.client.green2, state.ball, cfg['zone_defense'],
+                    self.robot2, state.ball, cfg['zone_defense'],
                     cfg['vitesse']
                 )
             except:
@@ -359,7 +377,7 @@ class StrategyController:
             # Défenseur reste en gardien
             if self.referee.can_control_robot(str(defender_id)):
                 cfg = self.defense_config
-                robot = self.client.green1 if defender_id == 1 else self.client.green2
+                robot = self.robot1 if defender_id == 1 else self.robot2
                 try:
                     # Utiliser le gardien (back) pour le défenseur en early game
                     self.defense.defense_back_goalkeeper(
@@ -395,8 +413,8 @@ class StrategyController:
         closest_id = state.closest_robot
         other_id = 2 if closest_id == 1 else 1
         
-        closest_robot = self.client.green1 if closest_id == 1 else self.client.green2
-        other_robot = self.client.green2 if closest_id == 1 else self.client.green1
+        closest_robot = self.robot1 if closest_id == 1 else self.robot2
+        other_robot = self.robot2 if closest_id == 1 else self.robot1
         
         # Robot proche : défense agressive (front)
         if self.referee.can_control_robot(str(closest_id)):
@@ -451,7 +469,7 @@ class StrategyController:
             angle = FieldUtils.angle(state.robot1_pos, safe_pos)
             print(f"⚠️  R1 sortie zone adverse !")
             try:
-                self.client.green1.goto((safe_pos[0], safe_pos[1], angle), wait=False)
+                self.robot1.goto((safe_pos[0], safe_pos[1], angle), wait=False)
             except:
                 pass
         
@@ -463,7 +481,7 @@ class StrategyController:
             angle = FieldUtils.angle(state.robot2_pos, safe_pos)
             print(f"⚠️  R2 sortie zone adverse !")
             try:
-                self.client.green2.goto((safe_pos[0], safe_pos[1], angle), wait=False)
+                self.robot2.goto((safe_pos[0], safe_pos[1], angle), wait=False)
             except:
                 pass
     
@@ -474,7 +492,7 @@ class StrategyController:
             if self.referee.should_retreat_from_ball("1", state.robot1_pos, state.ball):
                 retreat = self.referee.get_retreat_position(state.robot1_pos, state.ball)
                 try:
-                    self.client.green1.goto(
+                    self.robot1.goto(
                         (retreat[0], retreat[1], state.robot1_theta),
                         wait=False
                     )
@@ -486,7 +504,7 @@ class StrategyController:
             if self.referee.should_retreat_from_ball("2", state.robot2_pos, state.ball):
                 retreat = self.referee.get_retreat_position(state.robot2_pos, state.ball)
                 try:
-                    self.client.green2.goto(
+                    self.robot2.goto(
                         (retreat[0], retreat[1], state.robot2_theta),
                         wait=False
                     )
@@ -511,22 +529,29 @@ class StrategyController:
 
 
 def main():
-    """Point d'entrée principal"""
-    print("="*60)
+    """Point d'entrée principal avec choix d'équipe interactif"""
+    print("="*70)
     print("🎮 STRATÉGIE COMPLÈTE - Robot Soccer")
-    print("="*60)
+    print("="*70)
     
-    # Configuration des buts (depuis config.py)
-    opponent_goal = config.GOAL_POSITION       # But adverse (on attaque)
-    our_goal = config.OUR_GOAL_POSITION        # Notre but (on défend)
+    # NOUVEAU : Choix interactif de l'équipe
+    # Le côté d'attaque est automatique selon la couleur :
+    # - VERTS attaquent à GAUCHE (X négatif)
+    # - BLEUS attaquent à DROITE (X positif)
+    team_color = choose_team_interactive()
     
-    print(f"🛡️  Notre but    : {our_goal}")
-    print(f"🎯 But adverse  : {opponent_goal}")
-    print("="*60 + "\n")
+    # Créer le gestionnaire d'équipe
+    team_manager = TeamManager(team_color)
+    
+    # Afficher la configuration
+    team_manager.print_status()
+    
+    print("⚠️  À la mi-temps, les buts seront automatiquement inversés !")
+    print("="*70 + "\n")
     
     try:
         with rsk.Client() as client:
-            controller = StrategyController(client, our_goal, opponent_goal)
+            controller = StrategyController(client, team_manager)
             
             print("✅ Connexion établie")
             print("⏳ En attente du match...\n")
