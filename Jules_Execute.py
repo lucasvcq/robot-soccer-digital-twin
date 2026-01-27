@@ -102,7 +102,6 @@ class action :
 
 
 
-with rsk.Client(host="10.31.64.249:7070") as client:
+with rsk.Client() as client:
     Action = action(client)
     Remi = remi(client)
-    Action.Tire_vers_le_but(client.green1,"droit")
