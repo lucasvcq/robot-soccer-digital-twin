@@ -297,8 +297,8 @@ def main():
     with rsk.Client() as client:
         defense = DefenseCorrected(client)
         
-        # CONFIGURATION
-        our_goal = (0.92, 0.0)  # À ADAPTER selon votre terrain
+        # CONFIGURATION (depuis config.py)
+        our_goal = config.OUR_GOAL_POSITION  # Notre but à défendre
         vitesse = 4
         
         print(f"🎯 Notre but : {our_goal}")

@@ -143,6 +143,9 @@ GOAL_X = -1.84 / 2
 # Position complète du but (X, Y)
 GOAL_POSITION = (GOAL_X, 0.0)
 
+# Notre but (à défendre) - opposé du but adverse    ← AJOUTER CETTE LIGNE
+OUR_GOAL_POSITION = (-GOAL_X, 0.0)  
+
 # ============================================================================
 # ZONES INTERDITES (Surface de réparation)
 # ============================================================================

@@ -18,7 +18,7 @@ from enum import Enum
 from field_utils import FieldUtils
 from game_state import GameState
 from referee_manager import RefereeManager
-from defense_compatible import DefenseCompatible
+from defense_corrected import DefenseCorrected  # MODIFIÉ : Utilise la version corrigée
 from team_controller import TeamController
 import config
 
@@ -53,7 +53,7 @@ class StrategyController:
         self.opponent_goal = opponent_goal
         
         # Contrôleurs spécialisés
-        self.defense = DefenseCompatible(client)
+        self.defense = DefenseCorrected(client)  # MODIFIÉ : Version corrigée
         self.attack = TeamController(client, opponent_goal)
         self.referee = RefereeManager(client, team_color="green")
         
@@ -316,24 +316,22 @@ class StrategyController:
         """Mode défense passive"""
         cfg = self.defense_config
         
-        # Robot 1 (front)
+        # Robot 1 (front) - Défenseur avant
         if self.referee.can_control_robot("1"):
             try:
-                self.defense.defense_passive(
+                self.defense.defense_front_harasser(
                     self.client.green1, state.ball, cfg['zone_defense'],
-                    cfg['erreur_placement'], cfg['vitesse'],
-                    cfg['marge_front'], cfg['seuil_ball'], "front"
+                    cfg['vitesse']
                 )
             except:
                 pass
         
-        # Robot 2 (back)
+        # Robot 2 (back) - Gardien
         if self.referee.can_control_robot("2"):
             try:
-                self.defense.defense_passive(
+                self.defense.defense_back_goalkeeper(
                     self.client.green2, state.ball, cfg['zone_defense'],
-                    cfg['erreur_placement'], cfg['vitesse'],
-                    cfg['marge_back'], cfg['seuil_ball'], "back"
+                    cfg['vitesse']
                 )
             except:
                 pass
@@ -363,10 +361,10 @@ class StrategyController:
                 cfg = self.defense_config
                 robot = self.client.green1 if defender_id == 1 else self.client.green2
                 try:
-                    self.defense.defense_passive(
+                    # Utiliser le gardien (back) pour le défenseur en early game
+                    self.defense.defense_back_goalkeeper(
                         robot, state.ball, cfg['zone_defense'],
-                        cfg['erreur_placement'], cfg['vitesse'],
-                        cfg['marge_back'], cfg['seuil_ball'], "back"
+                        cfg['vitesse']
                     )
                 except:
                     pass
@@ -404,10 +402,10 @@ class StrategyController:
         if self.referee.can_control_robot(str(closest_id)):
             cfg = self.defense_config
             try:
-                self.defense.defense_passive(
+                # Utiliser le défenseur front pour le harcèlement
+                self.defense.defense_front_harasser(
                     closest_robot, state.ball, cfg['zone_defense'],
-                    cfg['erreur_placement'], cfg['vitesse'],
-                    cfg['marge_front'], cfg['seuil_ball'], "front"
+                    cfg['vitesse']
                 )
             except:
                 pass
@@ -518,9 +516,9 @@ def main():
     print("🎮 STRATÉGIE COMPLÈTE - Robot Soccer")
     print("="*60)
     
-    # Configuration des buts
-    our_goal = (config.GOAL_POSITION[0], 0.0)        # Notre but
-    opponent_goal = (-config.GOAL_POSITION[0], 0.0)  # But adverse
+    # Configuration des buts (depuis config.py)
+    opponent_goal = config.GOAL_POSITION       # But adverse (on attaque)
+    our_goal = config.OUR_GOAL_POSITION        # Notre but (on défend)
     
     print(f"🛡️  Notre but    : {our_goal}")
     print(f"🎯 But adverse  : {opponent_goal}")
