@@ -12,10 +12,10 @@ with rsk.Client() as client:
     seuil_ball_esquive = 0.4
     force = 2
     x,y=client.ball
-    destination = (x+0.3,y)
+    destination = client.ball
     while True:
         try:
-            fini = Remi.mouvement(self, robot, destination, vitesse_max, seuil_cible, seuil_player, force)        
+            fini = Remi.mouvement(robot, destination, vitesse_max, seuil_cible, seuil_player, force)        
         except Exception as e:
             print("Erreur :", e)   # Affiche la vraie erreur → indispensable pour débug
             Remi.can_move("green", 2)

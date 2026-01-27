@@ -95,42 +95,42 @@ class Game:
         }
         # 2. Prise de décision basée sur les variables self déjà calculées
         if self.nb_nos_actifs == 2:
+            elapsed = time.time() - start_time
+            print(elapsed)
+            # --- 1. DETECTION IMMOBILITÉ BALLE (3 SECONDES) ---
+            is_ball_stuck = False
+            if ball_last_pos is not None:
+                dist_mouv = sqrt((ball[0]-ball_last_pos[0])**2 + (ball[1]-ball_last_pos[1])**2)
+                if dist_mouv < 0.01: # Si elle bouge de moins d'1cm
+                    ball_stop_timer += 0.1
+                else:
+                    ball_stop_timer = 0
+                if ball_stop_timer >= 3.0:
+                    is_ball_stuck = True
+            ball_last_pos = ball
+
+            # --- 2. LOGIQUE STRATÉGIQUE ---
+
+            # Condition : La balle est dans notre camp ?
+            # (Si cote=1, notre camp est x > 0. Si cote=-1, notre camp est x < 0)
+            ball_dans_notre_camp = (-ball[0] * cote > 0)
+            x,y = robot.position
+            if y>0:
+                yposition=1
+            else:
+                yposition=-1
+            if robot==client.green1:
+                shooter=shooter1
+            elif robot==client.green2:
+                shooter=shooter2
+            elif robot==client.blue1:
+                shooter=shooter3
+            elif robot==client.blue2:
+                shooter=shooter4
             if self.nb_adv_actifs == 2:
                 print(">>> 2 vs 2 : Match classique")
                 
-                elapsed = time.time() - start_time
-                print(elapsed)
-                # --- 1. DETECTION IMMOBILITÉ BALLE (3 SECONDES) ---
-                is_ball_stuck = False
-                if ball_last_pos is not None:
-                    dist_mouv = sqrt((ball[0]-ball_last_pos[0])**2 + (ball[1]-ball_last_pos[1])**2)
-                    if dist_mouv < 0.01: # Si elle bouge de moins d'1cm
-                        ball_stop_timer += 0.1
-                    else:
-                        ball_stop_timer = 0
-                    if ball_stop_timer >= 3.0:
-                        is_ball_stuck = True
-                ball_last_pos = ball
-
-                # --- 2. LOGIQUE STRATÉGIQUE ---
-
-                # Condition : La balle est dans notre camp ?
-                # (Si cote=1, notre camp est x > 0. Si cote=-1, notre camp est x < 0)
-                ball_dans_notre_camp = (-ball[0] * cote > 0)
-                x,y = robot.position
-                if y>0:
-                    yposition=1
-                else:
-                    yposition=-1
-
-                if robot==client.green1:
-                    shooter=shooter1
-                elif robot==client.green2:
-                    shooter=shooter2
-                elif robot==client.blue1:
-                    shooter=shooter3
-                elif robot==client.blue2:
-                    shooter=shooter4
+                
 
                 # A. MODE DEFENSE (Balle dans notre camp)
                 if ball_dans_notre_camp and not is_ball_stuck:
@@ -169,7 +169,7 @@ class Game:
                         else:
                             # Le deuxième reste aux buts
                             Remi.defense_passive(robot, ball, zone_def, params["err"], params["vitesse"], 0.2, params["seuil_ball"], "back", -cote, 0.2)
-
+            elif role=="back":
                 return
             elif self.nb_adv_actifs == 1:
                 print(">>> Supériorité numérique")

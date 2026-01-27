@@ -105,4 +105,4 @@ class action :
 with rsk.Client() as client:
     Action = action(client)
     Remi = remi(client)
-    Action.Tire_vers_le_but(client.green1,"droit")
+    #Action.Tire_vers_le_but(client.green1,"droit")
