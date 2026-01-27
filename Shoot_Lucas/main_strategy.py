@@ -18,7 +18,7 @@ from enum import Enum
 from field_utils import FieldUtils
 from game_state import GameState
 from referee_manager import RefereeManager
-from defense_corrected import DefenseCorrected
+from defense import Defense
 from team_controller import TeamController
 from team_manager import TeamManager, choose_team_interactive
 import config
@@ -58,7 +58,7 @@ class StrategyController:
         self.robot1, self.robot2 = team_manager.get_robots(client)
         
         # Contrôleurs spécialisés
-        self.defense = DefenseCorrected(client)
+        self.defense = Defense(client)
         self.attack = TeamController(client, self.opponent_goal, team_manager.team_color)
         self.referee = RefereeManager(client, team_color=team_manager.team_color)
         
