@@ -1,10 +1,14 @@
 """
-🛡️ DEFENSE CORRIGÉE - Version finale avec logique clarifiée
+🛡️ DEFENSE CORRIGÉE V2 - Avec AroundPlanner pour évitement
 
 STRATÉGIE :
 - Robot BACK (gardien) : Reste dans NOTRE zone défensive, suit la balle
 - Robot FRONT : Se maintient à ~25cm de la balle (évite pénalité abus)
-                 Si ne peut plus respecter 25cm → fonce et dégage
+                Si ne peut plus respecter 25cm → fonce et dégage
+
+CORRECTION V2 :
+- Utilise AroundPlanner pour contourner la balle intelligemment
+- Évite de passer à travers la balle en reculant
 
 RÈGLES :
 ✅ Notre zone défensive : AUTORISÉE (règle 5 - max 1 robot)
@@ -16,11 +20,12 @@ import rsk
 from typing import Tuple
 from math import atan2, pi, sqrt, cos, sin
 from field_utils import FieldUtils
+from around_planner import AroundPlanner
 from referee_manager import RefereeManager
 import config
 
 class Defense:
-    """Défense corrigée selon vos spécifications exactes"""
+    """Défense corrigée V2 avec AroundPlanner"""
     
     # Constantes importantes
     BALL_SAFE_DISTANCE = 0.25  # 25cm de la balle (règle 7)
@@ -29,6 +34,9 @@ class Defense:
     def __init__(self, client):
         self.client = client
         self.referee = RefereeManager(client, team_color="green")
+        
+        # NOUVEAU : État de contournement pour éviter la balle
+        self.avoid_ball_side = {}  # robot_id -> side (-1 ou +1)
     
     def vecteur_robot(self, robot, objectif: Tuple[float, float]) -> Tuple[float, float]:
         """Vecteur vers l'objectif dans le repère du robot (normalisé)"""
@@ -46,22 +54,14 @@ class Defense:
                            our_goal: Tuple[float, float]) -> Tuple[float, float]:
         """
         Calcule la position du gardien DANS notre zone défensive
-        
-        Le gardien doit :
-        1. Rester DANS notre zone (pas juste à la limite)
-        2. Se positionner sur la ligne balle-but
-        3. Bouger latéralement pour bloquer
         """
-        # Direction balle → but
         dx = our_goal[0] - ball[0]
         dy = our_goal[1] - ball[1]
         dist = sqrt(dx**2 + dy**2)
         
         if dist < 0.01:
-            # Balle sur le but
             return our_goal
         
-        # Vecteur unitaire
         ux, uy = dx / dist, dy / dist
         
         # Position : 20cm devant le but (DANS la zone de 30cm)
@@ -77,74 +77,88 @@ class Defense:
                                our_goal: Tuple[float, float]) -> Tuple[float, float]:
         """
         Calcule la position du défenseur avant à ~25cm de la balle
-        
-        Le défenseur doit :
-        1. Rester à environ 25cm de la balle (éviter abus)
-        2. Se positionner entre la balle et notre but
-        3. Ne JAMAIS entrer dans notre zone (laisse ça au gardien)
         """
-        # Direction balle → but
         dx = our_goal[0] - ball[0]
         dy = our_goal[1] - ball[1]
         dist = sqrt(dx**2 + dy**2)
         
         if dist < 0.01:
-            # Balle sur le but, se mettre sur le côté
             side_offset = 0.30
             return FieldUtils.clamp((ball[0], ball[1] + side_offset), margin=0.02)
         
-        # Vecteur unitaire balle → but
         ux, uy = dx / dist, dy / dist
         
         # Position : 25cm derrière la balle (côté de notre but)
         front_x = ball[0] + ux * self.BALL_SAFE_DISTANCE
         front_y = ball[1] + uy * self.BALL_SAFE_DISTANCE
         
-        # IMPORTANT : Ne pas entrer dans NOTRE zone défensive
-        # Vérifier et corriger si trop proche de notre zone
-        penalty_limit = config.PENALTY_AREA_DEPTH + 0.05  # Marge de sécurité
+        # Ne pas entrer dans NOTRE zone défensive
+        penalty_limit = config.PENALTY_AREA_DEPTH + 0.05
         
-        if our_goal[0] < 0:  # Notre but à gauche
+        if our_goal[0] < 0:
             if front_x < (FieldUtils.MIN_X + penalty_limit):
                 front_x = FieldUtils.MIN_X + penalty_limit
-        else:  # Notre but à droite
+        else:
             if front_x > (FieldUtils.MAX_X - penalty_limit):
                 front_x = FieldUtils.MAX_X - penalty_limit
         
-        # CRITIQUE : Vérifier qu'on n'entre PAS dans la zone ADVERSE
+        # Ne pas entrer dans la zone ADVERSE
         opponent_goal_x = -our_goal[0]
         temp_pos = (front_x, front_y)
         
         if FieldUtils.is_in_penalty_area(temp_pos, opponent_goal_x):
-            # La position calculée est dans la zone adverse ! Corriger
-            # Se mettre juste à l'extérieur de la zone adverse
             safe_margin = config.PENALTY_AREA_DEPTH + config.PENALTY_AREA_MARGIN + 0.05
             
-            if opponent_goal_x < 0:  # Zone adverse à gauche
+            if opponent_goal_x < 0:
                 front_x = max(front_x, FieldUtils.MIN_X + safe_margin)
-            else:  # Zone adverse à droite
+            else:
                 front_x = min(front_x, FieldUtils.MAX_X - safe_margin)
         
         return FieldUtils.clamp((front_x, front_y), margin=0.02)
+    
+    def _compute_avoid_waypoint(self, robot_pos: Tuple[float, float], 
+                                 ball: Tuple[float, float],
+                                 target: Tuple[float, float],
+                                 robot_id: str) -> Tuple[float, float]:
+        """
+        NOUVEAU : Calcule un waypoint pour contourner la balle avec AroundPlanner
+        
+        Args:
+            robot_pos: Position actuelle du robot
+            ball: Position de la balle
+            target: Position cible (où on veut aller)
+            robot_id: ID du robot pour mémoriser le côté
+            
+        Returns:
+            Tuple (x, y): Waypoint de contournement
+        """
+        # Choisir le côté si pas encore fait
+        if robot_id not in self.avoid_ball_side:
+            # Utiliser AroundPlanner pour choisir le meilleur côté
+            self.avoid_ball_side[robot_id] = AroundPlanner.choose_side(robot_pos, ball, target)
+        
+        side = self.avoid_ball_side[robot_id]
+        
+        # Calculer le waypoint de contournement
+        waypoint = AroundPlanner.compute_around_waypoint(ball, target, side=side)
+        
+        return waypoint
+    
+    def _reset_avoid_side(self, robot_id: str):
+        """Réinitialise le côté de contournement"""
+        if robot_id in self.avoid_ball_side:
+            del self.avoid_ball_side[robot_id]
     
     def should_front_clear_ball(self, robot_pos: Tuple[float, float],
                                ball: Tuple[float, float],
                                our_goal: Tuple[float, float]) -> bool:
         """
         Détermine si le front doit foncer dégager la balle
-        
-        Critères :
-        - La balle est proche de notre zone ET
-        - Le front ne peut plus respecter les 25cm
         """
         dist_to_ball = FieldUtils.dist(robot_pos, ball)
         
-        # Si déjà très proche de la balle (< 28cm) ET la balle est dangereuse
         if dist_to_ball < self.BALL_CLEARANCE_THRESHOLD:
-            # Vérifier si la balle est dans une zone dangereuse
             dist_ball_goal = FieldUtils.dist(ball, our_goal)
-            
-            # Si balle à moins de 60cm de notre but → danger
             if dist_ball_goal < 0.60:
                 return True
         
@@ -161,11 +175,7 @@ class Defense:
             robot.control(0, 0, 0)
             return
         
-        # DEBUG : Vérifier les paramètres
-        if config.DEBUG_VERBOSE:
-            print(f"[DefenseBack] Robot={robot}, our_goal={our_goal}, ball={ball}")
-        
-        # RÈGLE 6 : Sortir si dans zone ADVERSE (normalement impossible pour gardien)
+        # RÈGLE 6 : Sortir si dans zone ADVERSE
         opponent_goal = (-our_goal[0], 0.0)
         if FieldUtils.is_in_penalty_area(robot.position, opponent_goal[0]):
             safe_pos = FieldUtils.get_safe_position_outside_penalty(
@@ -204,6 +214,8 @@ class Defense:
         """
         Comportement du DÉFENSEUR AVANT (robot FRONT)
         Suit la balle à ~25cm, dégage si nécessaire
+        
+        CORRECTION V2 : Utilise AroundPlanner pour contourner la balle
         """
         if ball is None:
             robot.control(0, 0, 0)
@@ -225,57 +237,45 @@ class Defense:
         robot_pos = robot.position
         dist_to_ball = FieldUtils.dist(robot_pos, ball)
         
+        # Obtenir un ID unique pour ce robot (basé sur sa position initiale)
+        robot_id = f"front_{id(robot)}"
+        
         # DÉCISION : Dégager ou suivre ?
         should_clear = self.should_front_clear_ball(robot_pos, ball, our_goal)
         
         if should_clear:
             # MODE DÉGAGEMENT : Foncer vers la balle et taper
-            # MAIS vérifier qu'on n'entre pas dans la zone adverse
+            self._reset_avoid_side(robot_id)
+            
             opponent_goal = (-our_goal[0], 0.0)
             
             # Si la balle est dans la zone adverse, NE PAS y aller !
             if FieldUtils.is_in_penalty_area(ball, opponent_goal[0]):
-                # Balle dans zone adverse : impossible de dégager
-                # Rester à distance de sécurité
                 safe_distance_pos = self.front_defender_position(ball, our_goal)
                 vx, vy = self.vecteur_robot(robot, safe_distance_pos)
                 robot.control(vx * vitesse * 0.5, vy * vitesse * 0.5, 0)
                 if config.DEBUG_VERBOSE:
                     print(f"[FRONT] ⚠️  Balle dans zone adverse, maintien distance")
             elif dist_to_ball < 0.15:
-                # Assez proche pour tirer ET balle hors zone adverse
-                # CRITIQUE : Viser VERS le but ADVERSE, PAS vers notre but !
-                # Calculer la direction vers le but adverse
-                opponent_goal = (-our_goal[0], 0.0)
-                
-                # Vérifier qu'on vise bien VERS le but adverse (pas vers notre but)
+                # Assez proche pour tirer
                 angle_to_opp_goal = atan2(
                     opponent_goal[1] - robot_pos[1],
                     opponent_goal[0] - robot_pos[0]
                 )
                 
-                # SÉCURITÉ : Vérifier que l'angle ne pointe pas vers notre but
                 angle_to_our_goal = atan2(
                     our_goal[1] - robot_pos[1],
                     our_goal[0] - robot_pos[0]
                 )
                 
-                # Si on risque de tirer vers notre but, ajuster l'angle
                 angle_diff = abs(FieldUtils.wrap(angle_to_opp_goal - angle_to_our_goal))
                 
-                if angle_diff < 1.57:  # < 90 degrés = mauvaise direction
-                    # On risque de tirer vers notre but !
-                    # Viser sur le côté à la place
-                    if config.DEBUG_VERBOSE:
-                        print(f"[FRONT] ⚠️  Ajustement angle pour éviter but contre son camp")
-                    
-                    # Viser perpendiculairement (sur le côté)
+                if angle_diff < 1.57:
                     if robot_pos[1] > 0:
-                        angle_to_clear = atan2(1.0, 0.0)  # Vers le haut
+                        angle_to_clear = atan2(1.0, 0.0)
                     else:
-                        angle_to_clear = atan2(-1.0, 0.0)  # Vers le bas
+                        angle_to_clear = atan2(-1.0, 0.0)
                 else:
-                    # Angle OK, viser le but adverse
                     angle_to_clear = angle_to_opp_goal
                 
                 try:
@@ -286,9 +286,9 @@ class Defense:
                 except:
                     pass
             else:
-                # Foncer vers la balle (mais elle n'est pas dans zone adverse)
+                # Foncer vers la balle
                 vx, vy = self.vecteur_robot(robot, ball)
-                robot.control(vx * vitesse * 1.2, vy * vitesse * 1.2, 0)  # Plus rapide
+                robot.control(vx * vitesse * 1.2, vy * vitesse * 1.2, 0)
         else:
             # MODE SUIVI : Maintenir ~25cm de la balle
             target_pos = self.front_defender_position(ball, our_goal)
@@ -300,41 +300,42 @@ class Defense:
             # Distance à la position cible
             dist_to_target = FieldUtils.dist(robot_pos, target_pos)
             
-            # Contrôle de distance par rapport à la balle
-            if dist_to_ball < 0.23:
-                # TROP PROCHE ! Reculer légèrement
-                # Direction : s'éloigner de la balle
-                away_x = robot_pos[0] - ball[0]
-                away_y = robot_pos[1] - ball[1]
-                away_dist = sqrt(away_x**2 + away_y**2)
-                if away_dist > 0:
-                    away_x /= away_dist
-                    away_y /= away_dist
-                    vx, vy = self.vecteur_robot(robot, (robot_pos[0] + away_x * 0.1, 
-                                                         robot_pos[1] + away_y * 0.1))
-                    robot.control(vx * vitesse * 0.5, vy * vitesse * 0.5, 0)
-                else:
-                    robot.control(0, 0, 0)
+            # ============================================================
+            # CORRECTION V2 : Utiliser AroundPlanner si trop proche
+            # ============================================================
+            if dist_to_ball < 0.22:
+                # TROP PROCHE ! Utiliser AroundPlanner pour contourner
+                # On veut aller vers target_pos en évitant la balle
+                
+                waypoint = self._compute_avoid_waypoint(robot_pos, ball, target_pos, robot_id)
+                
+                # Aller vers le waypoint
+                vx, vy = self.vecteur_robot(robot, waypoint)
+                robot.control(vx * vitesse * 0.8, vy * vitesse * 0.8, 0)
+                
+                if config.DEBUG_VERBOSE:
+                    print(f"[FRONT] 🔄 Contournement via AroundPlanner")
             
-            elif dist_to_ball > 0.27:
+            elif dist_to_ball > 0.28:
                 # TROP LOIN ! Se rapprocher
+                self._reset_avoid_side(robot_id)  # Reset le côté de contournement
+                
                 if dist_to_target > 0.05:
                     vx, vy = self.vecteur_robot(robot, target_pos)
                     robot.control(vx * vitesse, vy * vitesse, 0)
                 else:
-                    # En position, juste orienter
                     theta_robot = robot.orientation
                     w = (angle_to_ball - theta_robot + pi) % (2 * pi) - pi
                     robot.control(0, 0, 4 * w)
             
             else:
-                # BONNE DISTANCE (23-27cm) ! Juste suivre et orienter
+                # BONNE DISTANCE (22-28cm) ! Juste suivre et orienter
+                self._reset_avoid_side(robot_id)  # Reset le côté de contournement
+                
                 if dist_to_target > 0.08:
-                    # Petits ajustements
                     vx, vy = self.vecteur_robot(robot, target_pos)
                     robot.control(vx * vitesse * 0.7, vy * vitesse * 0.7, 0)
                 else:
-                    # Juste s'orienter vers la balle
                     theta_robot = robot.orientation
                     w = (angle_to_ball - theta_robot + pi) % (2 * pi) - pi
                     robot.control(0, 0, 4 * w)
@@ -347,18 +348,18 @@ class Defense:
 def main():
     """Lance la défense corrigée"""
     print("="*60)
-    print("🛡️  DÉFENSE CORRIGÉE")
+    print("🛡️  DÉFENSE CORRIGÉE V2")
     print("="*60)
     print("Stratégie:")
     print("  🥅 BACK  : Gardien dans notre zone")
-    print("  🛡️  FRONT : Suit à 25cm, dégage si danger")
+    print("  🛡️  FRONT : Suit à 25cm, contourne avec AroundPlanner")
     print("="*60 + "\n")
     
     with rsk.Client() as client:
         defense = Defense(client)
         
         # CONFIGURATION (depuis config.py)
-        our_goal = config.OUR_GOAL_POSITION  # Notre but à défendre
+        our_goal = config.OUR_GOAL_POSITION
         vitesse = 4
         
         print(f"🎯 Notre but : {our_goal}")
