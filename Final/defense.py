@@ -111,6 +111,20 @@ class Defense:
             if front_x > (FieldUtils.MAX_X - penalty_limit):
                 front_x = FieldUtils.MAX_X - penalty_limit
         
+        # CRITIQUE : Vérifier qu'on n'entre PAS dans la zone ADVERSE
+        opponent_goal_x = -our_goal[0]
+        temp_pos = (front_x, front_y)
+        
+        if FieldUtils.is_in_penalty_area(temp_pos, opponent_goal_x):
+            # La position calculée est dans la zone adverse ! Corriger
+            # Se mettre juste à l'extérieur de la zone adverse
+            safe_margin = config.PENALTY_AREA_DEPTH + config.PENALTY_AREA_MARGIN + 0.05
+            
+            if opponent_goal_x < 0:  # Zone adverse à gauche
+                front_x = max(front_x, FieldUtils.MIN_X + safe_margin)
+            else:  # Zone adverse à droite
+                front_x = min(front_x, FieldUtils.MAX_X - safe_margin)
+        
         return FieldUtils.clamp((front_x, front_y), margin=0.02)
     
     def should_front_clear_ball(self, robot_pos: Tuple[float, float],
@@ -146,6 +160,10 @@ class Defense:
         if ball is None:
             robot.control(0, 0, 0)
             return
+        
+        # DEBUG : Vérifier les paramètres
+        if config.DEBUG_VERBOSE:
+            print(f"[DefenseBack] Robot={robot}, our_goal={our_goal}, ball={ball}")
         
         # RÈGLE 6 : Sortir si dans zone ADVERSE (normalement impossible pour gardien)
         opponent_goal = (-our_goal[0], 0.0)
@@ -212,21 +230,63 @@ class Defense:
         
         if should_clear:
             # MODE DÉGAGEMENT : Foncer vers la balle et taper
-            if dist_to_ball < 0.15:
-                # Assez proche pour tirer
-                angle_to_clear = atan2(
+            # MAIS vérifier qu'on n'entre pas dans la zone adverse
+            opponent_goal = (-our_goal[0], 0.0)
+            
+            # Si la balle est dans la zone adverse, NE PAS y aller !
+            if FieldUtils.is_in_penalty_area(ball, opponent_goal[0]):
+                # Balle dans zone adverse : impossible de dégager
+                # Rester à distance de sécurité
+                safe_distance_pos = self.front_defender_position(ball, our_goal)
+                vx, vy = self.vecteur_robot(robot, safe_distance_pos)
+                robot.control(vx * vitesse * 0.5, vy * vitesse * 0.5, 0)
+                if config.DEBUG_VERBOSE:
+                    print(f"[FRONT] ⚠️  Balle dans zone adverse, maintien distance")
+            elif dist_to_ball < 0.15:
+                # Assez proche pour tirer ET balle hors zone adverse
+                # CRITIQUE : Viser VERS le but ADVERSE, PAS vers notre but !
+                # Calculer la direction vers le but adverse
+                opponent_goal = (-our_goal[0], 0.0)
+                
+                # Vérifier qu'on vise bien VERS le but adverse (pas vers notre but)
+                angle_to_opp_goal = atan2(
                     opponent_goal[1] - robot_pos[1],
                     opponent_goal[0] - robot_pos[0]
                 )
+                
+                # SÉCURITÉ : Vérifier que l'angle ne pointe pas vers notre but
+                angle_to_our_goal = atan2(
+                    our_goal[1] - robot_pos[1],
+                    our_goal[0] - robot_pos[0]
+                )
+                
+                # Si on risque de tirer vers notre but, ajuster l'angle
+                angle_diff = abs(FieldUtils.wrap(angle_to_opp_goal - angle_to_our_goal))
+                
+                if angle_diff < 1.57:  # < 90 degrés = mauvaise direction
+                    # On risque de tirer vers notre but !
+                    # Viser sur le côté à la place
+                    if config.DEBUG_VERBOSE:
+                        print(f"[FRONT] ⚠️  Ajustement angle pour éviter but contre son camp")
+                    
+                    # Viser perpendiculairement (sur le côté)
+                    if robot_pos[1] > 0:
+                        angle_to_clear = atan2(1.0, 0.0)  # Vers le haut
+                    else:
+                        angle_to_clear = atan2(-1.0, 0.0)  # Vers le bas
+                else:
+                    # Angle OK, viser le but adverse
+                    angle_to_clear = angle_to_opp_goal
+                
                 try:
                     robot.goto((ball[0], ball[1], angle_to_clear), wait=False)
                     robot.kick(power=0.95)
                     if config.DEBUG_VERBOSE:
-                        print(f"[FRONT] 🥾 DÉGAGEMENT !")
+                        print(f"[FRONT] 🥾 DÉGAGEMENT SÉCURISÉ !")
                 except:
                     pass
             else:
-                # Foncer vers la balle
+                # Foncer vers la balle (mais elle n'est pas dans zone adverse)
                 vx, vy = self.vecteur_robot(robot, ball)
                 robot.control(vx * vitesse * 1.2, vy * vitesse * 1.2, 0)  # Plus rapide
         else:
