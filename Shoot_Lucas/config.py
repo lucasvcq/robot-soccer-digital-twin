@@ -163,7 +163,7 @@ PENALTY_AREA_MARGIN = 0.05  # 10cm de marge (au lieu de 5cm)
 # ============================================================================
 
 # Afficher les messages de debug détaillés
-DEBUG_VERBOSE = False
+DEBUG_VERBOSE = True
 
 # Afficher les décisions stratégiques
 DEBUG_STRATEGY = False  # CORRECTION : Désactivé par défaut pour moins de spam

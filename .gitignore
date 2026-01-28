@@ -27,3 +27,12 @@ Shoot_Lucas/__pycache__/config.cpython-311.pyc
 Shoot_Lucas/__pycache__/field_utils.cpython-311.pyc
 Shoot_Lucas/__pycache__/navigation.cpython-311.pyc
 Shoot_Lucas/__pycache__/simple_shooter.cpython-311.pyc
+Final/__pycache__/around_planner.cpython-311.pyc
+Final/__pycache__/field_utils.cpython-311.pyc
+Final/__pycache__/game_state.cpython-311.pyc
+Final/__pycache__/navigation.cpython-311.pyc
+Final/__pycache__/referee_manager.cpython-311.pyc
+Final/__pycache__/robot_agent.cpython-311.pyc
+Final/__pycache__/team_manager.cpython-311.pyc
+Final/__pycache__/defense.cpython-311.pyc
+Final/__pycache__/config.cpython-311.pyc
