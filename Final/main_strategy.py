@@ -235,19 +235,26 @@ class SmartStrategyController:
         # Vérifier mi-temps
         if self.team_manager.check_halftime(self.client):
             with self.lock:
+                old_opponent_goal = self.opponent_goal
                 self.our_goal, self.opponent_goal = self.team_manager.get_current_goals()
                 self.agent1.set_target(self.opponent_goal)
                 self.agent2.set_target(self.opponent_goal)
-                print("🔄 Buts inversés pour la 2ème mi-temps !")
+                print("\n" + "="*70)
+                print("🔄 MI-TEMPS TERMINÉE - CHANGEMENT DE CÔTÉ")
+                print("="*70)
+                print(f"🛡️  Nouveau but à défendre : {self.our_goal}")
+                print(f"🎯 Nouveau but à attaquer  : {self.opponent_goal}")
+                print(f"   (Avant : {old_opponent_goal} → Après : {self.opponent_goal})")
+                print("="*70 + "\n")
         
         # Compter robots actifs
         r1_active = self.referee.can_control_robot("1")
         r2_active = self.referee.can_control_robot("2")
         our_active = int(r1_active) + int(r2_active)
         
-        # Position de la balle
+        # CORRECTION : Position de la balle APRÈS mise à jour mi-temps
         ball_x = state.ball[0]
-        attacking_left = self.opponent_goal[0] < 0
+        attacking_left = self.opponent_goal[0] < 0  # Utilise le but MIS À JOUR
         
         if attacking_left:
             ball_in_our_half = ball_x > 0
@@ -267,9 +274,17 @@ class SmartStrategyController:
             if random.random() < 0.5 or ball_in_our_half:
                 return "defense", "front", "back", self.attack_strategy
         
-        # Mode DEFENSE : Balle dans notre camp (sauf si immobile 3s)
-        if ball_in_our_half and not self.ball_is_static:
-            return "defense", "front", "back", self.attack_strategy
+        # Mode DEFENSE : Balle dans notre camp (sauf si immobile 3s ET on a 2 robots)
+        # CORRECTION : Si 1 seul robot actif (pénalité) → TOUJOURS défendre même si balle immobile
+        if ball_in_our_half:
+            if our_active == 1:
+                # Infériorité numérique → TOUJOURS défendre (ignore balle immobile)
+                if self.ball_is_static and config.DEBUG_VERBOSE:
+                    print("[Stratégie] Balle immobile MAIS infériorité numérique → DÉFENSE")
+                return "defense", "front", "back", self.attack_strategy
+            elif not self.ball_is_static:
+                # 2 robots actifs → Défendre sauf si balle immobile
+                return "defense", "front", "back", self.attack_strategy
         
         # Mode ATTACK
         if our_active == 2:
