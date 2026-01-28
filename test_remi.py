@@ -234,8 +234,8 @@ class remi:
         # logique back / front (conserve ton intention)
         if role == "back":
             # zone de tir simplifiée — garde ta logique initiale si tu veux des conditions plus fines
-            if (((ball[1] <= 0.45 and ball[1] >= -0.45) and ball[0] >= cote * 0.5) and cote > 0) \
-               or (((ball[1] <= 0.45 and ball[1] >= -0.45) and ball[0] <= cote * 0.5) and cote < 0):
+            if (((ball[1] <= 0.45 and ball[1] >= -0.45) and ball[0] >= cote * 0.3) and cote > 0) \
+               or (((ball[1] <= 0.45 and ball[1] >= -0.45) and ball[0] <= cote * 0.3) and cote < 0):
                 if distance_to_ball <= seuil_ball:
                     xs, ys = self.vecteur_direction(robot, ball)
                     theta_shoot = atan2(ys, xs)

@@ -247,7 +247,7 @@ def choisir_couleur():
 if __name__ == "__main__":
     N_couleur = choisir_couleur()
     
-    with rsk.Client() as client:#host="10.31.64.249:7070"
+    with rsk.Client(host="10.31.64.249:7070") as client:#host="10.31.64.249:7070"
         game = Game(client, N_couleur)
         Remi = remi(client)
         Action = action(client)
