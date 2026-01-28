@@ -23,8 +23,8 @@ from math import sqrt
 from field_utils import FieldUtils
 from game_state import GameState
 from referee_manager import RefereeManager
-from defense_corrected import DefenseCorrected
-from robot_agent_corrected import RobotAgentCorrected as RobotAgent
+from defense import Defense
+from robot_agent import RobotAgent
 from team_manager import TeamManager, choose_team_interactive
 import config
 
@@ -61,7 +61,7 @@ class SmartStrategyController:
         self.agent2 = RobotAgent(self.robot2, self.opponent_goal, f"{team_manager.team_color.capitalize()}2")
         
         # Défense et arbitre
-        self.defense = DefenseCorrected(client)
+        self.defense = Defense(client)
         self.referee = RefereeManager(client, team_color=team_manager.team_color)
         
         # État partagé (thread-safe)
@@ -291,18 +291,30 @@ class SmartStrategyController:
                 # 2 robots actifs → Défendre sauf si balle immobile
                 return "defense", "front", "back", self.attack_strategy
         
-        # Mode ATTACK
+        # CORRECTION CRITIQUE : Si 1 seul robot actif, il DÉFEND même si balle dans camp adverse
+        # (sauf si balle immobile depuis 3s)
+        if our_active == 1:
+            if not self.ball_is_static:
+                # 1 robot actif + balle bouge → DÉFENSE
+                print(f"[Stratégie] 1 robot actif seulement → MODE DÉFENSE (balle en X={state.ball[0]:.2f})")
+                if r1_active and not r2_active:
+                    return "defense", "front", "inactive", self.attack_strategy
+                if r2_active and not r1_active:
+                    return "defense", "inactive", "front", self.attack_strategy
+            else:
+                # 1 robot actif + balle immobile 3s → Profiter pour attaquer
+                print(f"[Stratégie] 1 robot actif + balle immobile → ATTAQUE OPPORTUNISTE")
+                if r1_active and not r2_active:
+                    return "attack", "attacker", "inactive", self.attack_strategy
+                if r2_active and not r1_active:
+                    return "attack", "inactive", "attacker", self.attack_strategy
+        
+        # Mode ATTACK (2 robots actifs)
         if our_active == 2:
             if closest_id == 1:
                 return "attack", "attacker", "keeper", self.attack_strategy
             else:
                 return "attack", "keeper", "attacker", self.attack_strategy
-        
-        # 1 seul robot actif
-        if r1_active and not r2_active:
-            return "attack", "attacker", "inactive", self.attack_strategy
-        if r2_active and not r1_active:
-            return "attack", "inactive", "attacker", self.attack_strategy
         
         return None, None, None, None
     
@@ -317,12 +329,32 @@ class SmartStrategyController:
                     time.sleep(0.5)
                     continue
                 
+                # DEBUG : Afficher l'état de l'arbitre
+                try:
+                    referee = self.client.referee
+                    halftime_running = referee.get("halftime_is_running", False)
+                    is_second = self.team_manager.is_second_half
+                    
+                    if config.DEBUG_VERBOSE:
+                        print(f"[HalftimeMonitor] halftime_running={halftime_running}, is_second_half={is_second}")
+                except:
+                    pass
+                
                 # Vérifier la mi-temps
                 if self.team_manager.check_halftime(self.client):
                     # MI-TEMPS DÉTECTÉE !
+                    print("\n" + "🔴"*35)
+                    print("🔴 MI-TEMPS DÉTECTÉE PAR LE THREAD DE SURVEILLANCE")
+                    print("🔴"*35)
+                    
                     with self.lock:
                         old_opponent_goal = self.opponent_goal
+                        old_our_goal = self.our_goal
+                        
                         self.our_goal, self.opponent_goal = self.team_manager.get_current_goals()
+                        
+                        print(f"🔴 AVANT : our_goal={old_our_goal}, opponent_goal={old_opponent_goal}")
+                        print(f"🔴 APRÈS : our_goal={self.our_goal}, opponent_goal={self.opponent_goal}")
                         
                         # Mettre à jour les agents
                         self.agent1.set_target(self.opponent_goal)
@@ -333,18 +365,22 @@ class SmartStrategyController:
                         print("="*70)
                         print(f"🛡️  Nouveau but à DÉFENDRE : {self.our_goal}")
                         print(f"🎯 Nouveau but à ATTAQUER  : {self.opponent_goal}")
-                        print(f"   (Avant : {old_opponent_goal} → Après : {self.opponent_goal})")
+                        print(f"   (Avant défendre: {old_our_goal} → Après: {self.our_goal})")
+                        print(f"   (Avant attaquer: {old_opponent_goal} → Après: {self.opponent_goal})")
                         print("="*70 + "\n")
                 
                 time.sleep(0.2)  # Vérifier toutes les 200ms
             
             except Exception as e:
-                if config.DEBUG_VERBOSE:
-                    print(f"Erreur surveillance mi-temps: {e}")
+                print(f"❌ ERREUR surveillance mi-temps: {e}")
+                import traceback
+                traceback.print_exc()
                 time.sleep(0.5)
     
     def _control_robot1(self):
         """Thread de contrôle du robot 1"""
+        last_debug_time = 0  # Pour debug périodique
+        
         while self.game_running:
             try:
                 if not self.referee.is_game_running():
@@ -362,6 +398,11 @@ class SmartStrategyController:
                 with self.lock:
                     current_opponent_goal = self.opponent_goal
                     current_our_goal = self.our_goal
+                
+                # DEBUG : Afficher les buts toutes les 3 secondes
+                if time.time() - last_debug_time > 3.0:
+                    print(f"[Robot1 Thread] Buts: DÉFENDRE={current_our_goal}, ATTAQUER={current_opponent_goal}")
+                    last_debug_time = time.time()
                 
                 state = GameState.from_client(self.client, current_opponent_goal)
                 if not state.is_valid():
