@@ -1,8 +1,14 @@
 """
-🎮 GESTIONNAIRE D'ÉQUIPE FLEXIBLE
+🎮 GESTIONNAIRE D'ÉQUIPE FLEXIBLE - VERSION CORRIGÉE
 Permet de choisir la couleur d'équipe et gère automatiquement la mi-temps
+
+CORRECTIONS:
+1. Détection de mi-temps améliorée avec état de transition
+2. Utilisation des constantes du terrain depuis field_utils
+3. Méthode force_halftime_change() pour debug
 """
 from typing import Tuple, Optional
+
 
 class TeamManager:
     """
@@ -11,6 +17,9 @@ class TeamManager:
     - Détection automatique de la mi-temps
     - Inversion des buts à la mi-temps
     """
+    
+    # Constantes du terrain (en mètres)
+    FIELD_HALF_LENGTH = 0.92  # 1.84m / 2
     
     def __init__(self, team_color: str):
         """
@@ -26,15 +35,16 @@ class TeamManager:
         # État de la mi-temps
         self.is_second_half = False
         self.halftime_detected = False
+        self._last_halftime_running = None  # Pour détecter la transition
         
         # Buts selon la couleur (1ère mi-temps)
         # RÈGLE : Verts attaquent GAUCHE (-), Bleus attaquent DROITE (+)
         if team_color == "green":
-            self.original_opponent_goal = (-0.92, 0.0)  # Verts attaquent à gauche
-            self.original_our_goal = (0.92, 0.0)         # Notre but à droite
+            self.original_opponent_goal = (-self.FIELD_HALF_LENGTH, 0.0)  # Verts attaquent à gauche
+            self.original_our_goal = (self.FIELD_HALF_LENGTH, 0.0)         # Notre but à droite
         else:  # blue
-            self.original_opponent_goal = (0.92, 0.0)   # Bleus attaquent à droite
-            self.original_our_goal = (-0.92, 0.0)        # Notre but à gauche
+            self.original_opponent_goal = (self.FIELD_HALF_LENGTH, 0.0)   # Bleus attaquent à droite
+            self.original_our_goal = (-self.FIELD_HALF_LENGTH, 0.0)        # Notre but à gauche
         
         print(f"🎮 Équipe sélectionnée : {self.team_color.upper()}")
         print(f"🎯 1ère mi-temps : Attaque vers {self.original_opponent_goal}")
@@ -57,39 +67,46 @@ class TeamManager:
     
     def check_halftime(self, client) -> bool:
         """
-        Vérifie si la mi-temps vient de commencer
+        Vérifie si la mi-temps vient de se terminer (transition détectée)
+        
+        VERSION AMÉLIORÉE : Détecte la transition de halftime_is_running True → False
         
         Args:
             client: Client RSK
             
         Returns:
-            bool: True si la mi-temps vient de démarrer (changement détecté)
+            bool: True si la mi-temps vient de se terminer (changement de côté nécessaire)
         """
         try:
             referee = client.referee
             halftime_running = referee.get("halftime_is_running", False)
+            game_running = referee.get("game_is_running", False)
             
-            # Détection du DÉBUT de la mi-temps
-            if halftime_running and not self.halftime_detected:
-                self.halftime_detected = True
-                print("\n" + "="*70)
-                print("⏸️  MI-TEMPS EN COURS")
-                print("="*70)
-                return False  # Pas encore de changement
+            # Debug optionnel
+            # print(f"[TeamManager] halftime_running={halftime_running}, game_running={game_running}, is_second_half={self.is_second_half}")
             
-            # Détection de la FIN de la mi-temps (retour au jeu)
-            if not halftime_running and self.halftime_detected:
-                # La mi-temps vient de se terminer
-                self.halftime_detected = False
+            # Initialisation de l'état précédent
+            if self._last_halftime_running is None:
+                self._last_halftime_running = halftime_running
+                return False
+            
+            # Détection de la TRANSITION : halftime passe de True à False
+            # ET le jeu reprend (game_running = True)
+            was_halftime = self._last_halftime_running
+            now_halftime = halftime_running
+            
+            if was_halftime and not now_halftime and game_running:
+                # La mi-temps vient de se terminer !
+                self._last_halftime_running = halftime_running
                 
                 if not self.is_second_half:
-                    # Passage à la 2ème mi-temps
+                    # C'est la première fois qu'on détecte la fin de mi-temps
                     self.is_second_half = True
                     
                     our_goal, opponent_goal = self.get_current_goals()
                     
                     print("\n" + "="*70)
-                    print("🔄 CHANGEMENT DE CÔTÉ - 2ÈME MI-TEMPS")
+                    print("🔄 MI-TEMPS TERMINÉE - CHANGEMENT DE CÔTÉ")
                     print("="*70)
                     print(f"🛡️  Nouveau but à défendre   : {our_goal}")
                     print(f"🎯 Nouveau but à attaquer   : {opponent_goal}")
@@ -97,9 +114,33 @@ class TeamManager:
                     
                     return True  # Changement détecté !
             
+            # Mise à jour de l'état précédent
+            self._last_halftime_running = halftime_running
             return False
             
-        except (KeyError, TypeError):
+        except (KeyError, TypeError) as e:
+            # print(f"[TeamManager] Erreur accès referee: {e}")
+            return False
+    
+    def force_halftime_change(self):
+        """
+        Force le changement de mi-temps (pour debug/test)
+        Utile si la détection automatique ne fonctionne pas
+        """
+        if not self.is_second_half:
+            self.is_second_half = True
+            our_goal, opponent_goal = self.get_current_goals()
+            
+            print("\n" + "="*70)
+            print("⚠️  CHANGEMENT DE CÔTÉ FORCÉ (debug)")
+            print("="*70)
+            print(f"🛡️  Nouveau but à défendre   : {our_goal}")
+            print(f"🎯 Nouveau but à attaquer   : {opponent_goal}")
+            print("="*70 + "\n")
+            
+            return True
+        else:
+            print("⚠️  Déjà en 2ème mi-temps, pas de changement")
             return False
     
     def get_robots(self, client):
@@ -175,3 +216,4 @@ if __name__ == "__main__":
     
     print("\n💡 À la mi-temps, les buts seront automatiquement inversés !")
     print("💡 Intégrez ce gestionnaire dans votre main_strategy.py")
+    print("\n💡 Pour debug : manager.force_halftime_change() force le changement")
