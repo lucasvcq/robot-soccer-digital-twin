@@ -161,6 +161,10 @@ class Defense:
             robot.control(0, 0, 0)
             return
         
+        # DEBUG : Vérifier les paramètres
+        if config.DEBUG_VERBOSE:
+            print(f"[DefenseBack] Robot={robot}, our_goal={our_goal}, ball={ball}")
+        
         # RÈGLE 6 : Sortir si dans zone ADVERSE (normalement impossible pour gardien)
         opponent_goal = (-our_goal[0], 0.0)
         if FieldUtils.is_in_penalty_area(robot.position, opponent_goal[0]):

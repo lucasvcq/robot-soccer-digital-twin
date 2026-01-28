@@ -46,6 +46,16 @@ class SmartStrategyController:
         self.our_goal, self.opponent_goal = team_manager.get_current_goals()
         self.robot1, self.robot2 = team_manager.get_robots(client)
         
+        # DEBUG : Afficher la configuration des buts
+        print("\n" + "="*70)
+        print(f"🔧 CONFIGURATION INITIALE - {team_manager.team_color.upper()}")
+        print("="*70)
+        print(f"🛡️  Notre but à DÉFENDRE  : {self.our_goal}")
+        print(f"🎯 But adverse à ATTAQUER : {self.opponent_goal}")
+        print(f"🤖 Robot 1 : {self.robot1}")
+        print(f"🤖 Robot 2 : {self.robot2}")
+        print("="*70 + "\n")
+        
         # Agents
         self.agent1 = RobotAgent(self.robot1, self.opponent_goal, f"{team_manager.team_color.capitalize()}1")
         self.agent2 = RobotAgent(self.robot2, self.opponent_goal, f"{team_manager.team_color.capitalize()}2")
@@ -436,6 +446,10 @@ class SmartStrategyController:
                 
                 elif role2 == "back":
                     try:
+                        # DEBUG : Vérifier le but passé
+                        if config.DEBUG_VERBOSE:
+                            print(f"[Robot2 BACK] Défend le but : {self.our_goal}")
+                        
                         self.defense.defense_back_goalkeeper(
                             self.robot2, state.ball, self.our_goal, self.vitesse_defense
                         )
