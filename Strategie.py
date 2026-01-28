@@ -97,16 +97,23 @@ class Game:
         if self.nb_nos_actifs == 2:
             elapsed = time.time() - start_time
             print(elapsed)
-            # --- 1. DETECTION IMMOBILITÉ BALLE (3 SECONDES) ---
+            # --- 1. DETECTION IMMOBILITÉ BALLE ---
             is_ball_stuck = False
+            if ball_last_pos is None:
+                ball_last_pos=(0,0)
+            # On vérifie la distance par rapport à la position sauvegardée au tour PRÉCÉDENT
             if ball_last_pos is not None:
                 dist_mouv = sqrt((ball[0]-ball_last_pos[0])**2 + (ball[1]-ball_last_pos[1])**2)
-                if dist_mouv < 0.01: # Si elle bouge de moins d'1cm
-                    ball_stop_timer += 0.1
+    
+                if dist_mouv < 0.01: # Moins d'1cm de mouvement
+                    ball_stop_timer += 0.1 # Supposant que ta boucle tourne à 10Hz
                 else:
-                    ball_stop_timer = 0
-                if ball_stop_timer >= 3.0:
-                    is_ball_stuck = True
+                    ball_stop_timer = 0 # Reset dès que ça bouge
+        
+            if ball_stop_timer >= 3.0:
+                is_ball_stuck = True
+
+            # IMPORTANT : On ne met à jour ball_last_pos qu'APRÈS les calculs
             ball_last_pos = ball
 
             # --- 2. LOGIQUE STRATÉGIQUE ---
@@ -240,7 +247,7 @@ def choisir_couleur():
 if __name__ == "__main__":
     N_couleur = choisir_couleur()
     
-    with rsk.Client() as client:
+    with rsk.Client() as client:#host="10.31.64.249:7070"
         game = Game(client, N_couleur)
         Remi = remi(client)
         Action = action(client)
