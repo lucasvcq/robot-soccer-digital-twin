@@ -2,7 +2,7 @@ import sys
 import os
 
 # On calcule le chemin du dossier Shoot_Lucas
-dossier_lucas = os.path.join(os.getcwd(), "Shoot_Lucas")
+dossier_lucas = os.path.join(os.getcwd(), "Lucas")
 # On l'ajoute à la liste des endroits où Python cherche les modules
 sys.path.append(dossier_lucas)
 #print("1")
@@ -16,7 +16,7 @@ from Jules_Execute import action
 #print("4")
 from Jules import formule
 #print("5")
-from Shoot_Lucas.simple_shooter import SimpleShooter
+from Lucas.simple_shooter import SimpleShooter
 class Game:
     def __init__(self, client, color):
         self.client = client
@@ -247,7 +247,7 @@ def choisir_couleur():
 if __name__ == "__main__":
     N_couleur = choisir_couleur()
     
-    with rsk.Client(host="10.31.64.249") as client: #host="10.31.64.249:7070"
+    with rsk.Client() as client: #host="10.31.64.249:7070"
         game = Game(client, N_couleur)
         Remi = remi(client)
         Action = action(client)
