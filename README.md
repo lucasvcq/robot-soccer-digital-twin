@@ -50,4 +50,8 @@ Team of 3 — all members contributed across strategy, robot control, and vision
 - Rémi Mahot
 - Jules Visa
 
+## License
+ 
+This project builds on the [Robot Soccer Kit](https://robot-soccer-kit.github.io/) platform, which is distributed under a **CC BY-NC** (non-commercial) license. Code in this repository that is specific to our team's strategy and game logic (not part of the kit itself) is shared here for portfolio and educational purposes only.
+
 > Note: code comments/documentation may be in French. This README provides an English summary of the project.
