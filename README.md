@@ -47,7 +47,7 @@ School project — ICAM, team project using the [Robot Soccer Kit](https://robot
 Team of 3 — all members contributed across strategy, robot control, and vision:
 
 - Lucas Vacquié
-- [Teammate name]
-- [Teammate name]
+- Rémi Mahot
+- Jules Visa
 
 > Note: code comments/documentation may be in French. This README provides an English summary of the project.
